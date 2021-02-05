@@ -1,7 +1,7 @@
 import os
 import clip
 import torch
-import utils
+from utils import RandomMask, SquareMask
 import sys
 import time
 
@@ -12,13 +12,14 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR100
 from tqdm import tqdm
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize, GaussianBlur
+from PIL import Image
 
 def get_features(model, dataset, device):
     all_features = []
     all_labels = []
     
     with torch.no_grad():
-        for images, labels in tqdm(DataLoader(dataset, batch_size=512)):
+        for images, labels in tqdm(DataLoader(dataset, batch_size=256)):
             features = model.encode_image(images.to(device))
 
             all_features.append(features.cpu())
@@ -70,6 +71,7 @@ def get_test_transform(trans, args, n_px):
 
 def get_clf(train_features, train_labels):
     parameters = {'C':[0.01, 0.03, 0.05, 0.075, 0.1, 0.3, 0.5, 0.75, 1, 3, 5, 7.5, 10, 30, 50, 75, 100]}
+    #parameters = {'C':[0.01]}
 
     logistic = LogisticRegression(random_state=0, max_iter=1000)
 
@@ -101,13 +103,20 @@ def main(debug=True):
     trans_types = ["None", "Random", "Blur", "Square"]
 
     pct_missings = [0.01, 0.1, 0.3, 0.5]
+    #pct_missings = [0.01]
 
     sq_lens = [20, 50, 100, 200]
+    #sq_lens = [20]
 
     blur_size = 5
     blur_stds = [0.1, 1, 2, 5]
+    #blur_stds = [0.1]
 
     for m in models:
+        name_str = m
+        if name_str == 'ViT-B/32':
+            name_str = 'ViT'
+
         if debug:
            print("LOADING MODEL: " + m) 
            start = time.time()
@@ -138,7 +147,11 @@ def main(debug=True):
            print("\nELAPSED TIME: ", str(time.time() - start)) 
 
         for trans in trans_types:
+            name_str += trans
+
             if trans=="None":
+                accuracies = []
+
                 if debug:
                     print("\n====Baseline Models (Clean Data)====")
                     start = time.time()
@@ -151,12 +164,18 @@ def main(debug=True):
                 accuracy = np.mean((test_labels == predictions).astype(np.float)) * 100.
                 print(f"Accuracy = {accuracy:.3f}")
 
+                accuracies.append(accuracy)
+
+                np.savetxt(os.getcwd()+"/"+name_str, np.array(accuracies))
+
                 if debug:
                     print("\nELAPSED TIME: ", str(time.time() - start)) 
             
             elif trans=="Random":
                 if debug:
                     print("\n====Random Masking====")
+                
+                accuracies = []
 
                 for pct in pct_missings:
                     if debug:
@@ -171,13 +190,19 @@ def main(debug=True):
                     accuracy = np.mean((test_labels == predictions).astype(np.float)) * 100.
                     print(f"Accuracy = {accuracy:.3f}")
 
+                    accuracies.append(accuracy)
+
                     if debug:
                         print("\nELAPSED TIME: ", str(time.time() - start)) 
+                
+                np.savetxt(os.getcwd()+"/"+name_str, np.array(accuracies))
 
             elif trans=="Square":
                 if debug:
                     print("\n====Square Masking====")
                 
+                accuracies = []
+
                 for sq_len in sq_lens:
                     if debug:
                         print("SQUARE LENGTH: ", str(sq_len))
@@ -191,12 +216,18 @@ def main(debug=True):
                     accuracy = np.mean((test_labels == predictions).astype(np.float)) * 100.
                     print(f"Accuracy = {accuracy:.3f}")
 
+                    accuracies.append(accuracy)
+
                     if debug:
                         print("\nELAPSED TIME: ", str(time.time() - start)) 
+                
+                np.savetxt(os.getcwd()+"/"+name_str, np.array(accuracies))
 
             elif trans=="Blur":
                 if debug:
                     print("\n====Blurring====")
+                
+                accuracies = []
                 
                 for std in blur_stds:
                     if debug:
@@ -211,8 +242,12 @@ def main(debug=True):
                     accuracy = np.mean((test_labels == predictions).astype(np.float)) * 100.
                     print(f"Accuracy = {accuracy:.3f}")
 
+                    accuracies.append(accuracy)
+
                     if debug:
                         print("\nELAPSED TIME: ", str(time.time() - start)) 
+                
+                np.savetxt(os.getcwd()+"/"+name_str, np.array(accuracies))
 
     return
 
