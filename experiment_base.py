@@ -70,16 +70,20 @@ def get_test_transform(trans, args, n_px):
     return test_preprocess
 
 def get_clf(train_features, train_labels):
-    parameters = {'C':[0.01, 0.03, 0.05, 0.075, 0.1, 0.3, 0.5, 0.75, 1, 3, 5, 7.5, 10, 30, 50, 75, 100]}
+    parameters = {'C':[0.01, 0.03, 0.05, 0.075, 0.1, 0.3, 0.5, 0.75, 1]}
     #parameters = {'C':[0.01]}
 
     logistic = LogisticRegression(random_state=0, max_iter=1000)
 
     clf = GridSearchCV(logistic, parameters, n_jobs=-1, verbose=2, cv=10)
+    clf.fit(train_features, train_labels)
 
-    return clf.fit(train_features, train_labels)
+    print("Best Parameters: ") 
+    print(clf.best_params_)
 
-def main(debug=True):
+    return clf
+
+def main(debug=True, data="CIFAR100"):
     # Keep these guys here for cmd arguments eventually
     # debug = None
     # if len(args) > 1:
@@ -102,21 +106,17 @@ def main(debug=True):
 
     trans_types = ["None", "Random", "Blur", "Square"]
 
-    pct_missings = [0.01, 0.1, 0.3, 0.5]
+    pct_missings = [0.001, 0.005, 0.01, 0.05, 0.1, 0.2, 0.3, 0.5]
     #pct_missings = [0.01]
 
-    sq_lens = [20, 50, 100, 200]
+    sq_lens = [10, 20, 30, 50, 75, 100, 150, 200]
     #sq_lens = [20]
 
-    blur_size = 5
-    blur_stds = [0.1, 1, 2, 5]
+    blur_size = 11
+    blur_stds = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20]
     #blur_stds = [0.1]
 
     for m in models:
-        name_str = m
-        if name_str == 'ViT-B/32':
-            name_str = 'ViT'
-
         if debug:
            print("LOADING MODEL: " + m) 
            start = time.time()
@@ -147,6 +147,9 @@ def main(debug=True):
            print("\nELAPSED TIME: ", str(time.time() - start)) 
 
         for trans in trans_types:
+            name_str = m
+            if name_str == 'ViT-B/32':
+                name_str = 'ViT'
             name_str += trans
 
             if trans=="None":
@@ -166,7 +169,7 @@ def main(debug=True):
 
                 accuracies.append(accuracy)
 
-                np.savetxt(os.getcwd()+"/"+name_str, np.array(accuracies))
+                np.savetxt(os.getcwd()+"/results/"+data+"/"+name_str, np.array(accuracies))
 
                 if debug:
                     print("\nELAPSED TIME: ", str(time.time() - start)) 
@@ -195,7 +198,7 @@ def main(debug=True):
                     if debug:
                         print("\nELAPSED TIME: ", str(time.time() - start)) 
                 
-                np.savetxt(os.getcwd()+"/"+name_str, np.array(accuracies))
+                np.savetxt(os.getcwd()+"/results/"+data+"/"+name_str, np.array(accuracies))
 
             elif trans=="Square":
                 if debug:
@@ -221,7 +224,7 @@ def main(debug=True):
                     if debug:
                         print("\nELAPSED TIME: ", str(time.time() - start)) 
                 
-                np.savetxt(os.getcwd()+"/"+name_str, np.array(accuracies))
+                np.savetxt(os.getcwd()+"/results/"+data+"/"+name_str, np.array(accuracies))
 
             elif trans=="Blur":
                 if debug:
@@ -247,7 +250,7 @@ def main(debug=True):
                     if debug:
                         print("\nELAPSED TIME: ", str(time.time() - start)) 
                 
-                np.savetxt(os.getcwd()+"/"+name_str, np.array(accuracies))
+                np.savetxt(os.getcwd()+"/results/"+data+"/"+name_str, np.array(accuracies))
 
     return
 
