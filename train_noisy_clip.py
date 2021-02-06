@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 import numpy as np
+import os
+import sys
+import time
 import torch
 import torch.nn.functional as F
 
@@ -8,10 +11,12 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR100
+
+import clip
 from utils import RandomMask, SquareMask
 from noisy_clip import ContrastiveUnsupervisedDataset, ModifiedCLIP
 from tqdm import tqdm
-from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize, GaussianBlur
+from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 from PIL import Image
 
 def get_label_names(dataset):
@@ -37,7 +42,8 @@ def main(debug=True, data="CIFAR100"):
     #     debug = False
     #     print("Debug: False")
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = 'cpu'
 
     if device=="cuda":
         torch.cuda.empty_cache()
@@ -47,7 +53,7 @@ def main(debug=True, data="CIFAR100"):
     batch_size = 128
 
     # models = ['RN50', 'ViT-B/32']
-    models = ['RN50']
+    models = ['ViT-B/32']
 
     # trans_types = ["None", "Random", "Blur", "Square"]
     trans_types = ['Random']
@@ -77,8 +83,6 @@ def main(debug=True, data="CIFAR100"):
             print("\nPERFORMING CROSS-VALIDATION TO FIND BEST LOGISTIC REGRESSION MODEL")
             start = time.time()
 
-        clf = get_clf(train_features, train_labels)
-
         if debug:
            print("\nELAPSED TIME: ", str(time.time() - start))
 
@@ -100,15 +104,15 @@ def main(debug=True, data="CIFAR100"):
                         print("PCT MISSING: ", str(pct))
                         start = time.time()
 
-                    train_base = CIFAR100(root, download=False, train=True, transform=train_preprocess)
-                    train_contrastive = ContrastiveUnsupervisedDataset(train_base, transform_clean=None, transform_noisy=RandomMask(pct))
+                    train_base = CIFAR100(root, download=True, train=True, transform=None)
+                    train_contrastive = ContrastiveUnsupervisedDataset(train_base, transform_clean=train_preprocess, transform_noisy=Compose([train_preprocess, RandomMask(pct)]))
 
                     train_dl = DataLoader(train_contrastive, batch_size=batch_size)
 
-                    new_model = ModifiedCLIP(baseclip)
+                    new_model = ModifiedCLIP(baseclip, device=device)
                     new_model.fit(train_dl)
 
-                    test_dl = CIFAR100(root, download=False, train=False, transform=Compose(train_preprocess, RandomMask(pct)))
+                    test_dl = CIFAR100(root, download=True, train=False, transform=Compose(train_preprocess, RandomMask(pct)))
                     CIFAR100_labels = get_label_names(dataset)
                     acc = new_model.score(test_dl, CIFAR100_labels)
 
