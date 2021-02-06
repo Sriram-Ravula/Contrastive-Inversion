@@ -102,7 +102,8 @@ def main(debug=True, data="CIFAR100"):
 
     root = os.path.expanduser("~/.cache")
 
-    models = ['RN50', 'ViT-B/32']
+    #models = ['RN50', 'ViT-B/32']
+    models = ['ViT-B/32']
 
     trans_types = ["None", "Random", "Blur", "Square"]
 
