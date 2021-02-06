@@ -70,10 +70,10 @@ def get_test_transform(trans, args, n_px):
     return test_preprocess
 
 def get_clf(train_features, train_labels):
-    parameters = {'C':[0.01, 0.03, 0.05, 0.075, 0.1, 0.3, 0.5, 0.75, 1]}
+    parameters = {'C':[0.01, 0.03, 0.05, 0.075, 0.1, 0.3, 0.5, 0.75, 1, 3, 5, 7.5, 10, 30, 50, 75, 100]}
     #parameters = {'C':[0.01]}
 
-    logistic = LogisticRegression(random_state=0, max_iter=1000)
+    logistic = LogisticRegression(random_state=0, max_iter=5000)
 
     clf = GridSearchCV(logistic, parameters, n_jobs=-1, verbose=2, cv=10)
     clf.fit(train_features, train_labels)
