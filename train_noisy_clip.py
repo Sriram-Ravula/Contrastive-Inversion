@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
 from torch.utils.data import DataLoader
-from torchvision.datasets import CIFAR100
+from torchvision.datasets import CIFAR10
 
 import clip
 from utils import RandomMask, SquareMask
@@ -19,18 +19,8 @@ from tqdm import tqdm
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 from PIL import Image
 
-def get_label_names(dataset):
-    all_features = []
-    all_labels = []
 
-    with torch.no_grad():
-        for _, labels in tqdm(DataLoader(dataset, batch_size=256)):
-            all_labels.append(labels.cpu())
-
-    return np.unique(torch.cat(all_labels).numpy())
-
-
-def main(debug=True, data="CIFAR100"):
+def main(debug=True, data="CIFAR10"):
     # Keep these guys here for cmd arguments eventually
     # debug = None
     # if len(args) > 1:
@@ -42,15 +32,15 @@ def main(debug=True, data="CIFAR100"):
     #     debug = False
     #     print("Debug: False")
 
-    # device = "cuda" if torch.cuda.is_available() else "cpu"
-    device = 'cpu'
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # device = 'cpu'
 
     if device=="cuda":
         torch.cuda.empty_cache()
 
     root = os.path.expanduser("~/.cache")
 
-    batch_size = 128
+    batch_size = 8
 
     # models = ['RN50', 'ViT-B/32']
     models = ['ViT-B/32']
@@ -104,26 +94,26 @@ def main(debug=True, data="CIFAR100"):
                         print("PCT MISSING: ", str(pct))
                         start = time.time()
 
-                    train_base = CIFAR100(root, download=True, train=True, transform=None)
+                    train_base = CIFAR10(root, download=True, train=True, transform=None)
                     train_contrastive = ContrastiveUnsupervisedDataset(train_base, transform_clean=train_preprocess, transform_noisy=Compose([train_preprocess, RandomMask(pct)]))
-
-                    train_dl = DataLoader(train_contrastive, batch_size=batch_size)
+                    train_dl = DataLoader(train_contrastive, batch_size=batch_size, shuffle=True)
 
                     new_model = ModifiedCLIP(baseclip, device=device)
                     new_model.fit(train_dl)
 
-                    test_dl = CIFAR100(root, download=True, train=False, transform=Compose(train_preprocess, RandomMask(pct)))
-                    CIFAR100_labels = get_label_names(dataset)
-                    acc = new_model.score(test_dl, CIFAR100_labels)
+                    test_dataset = CIFAR10(root, download=True, train=False, transform=Compose([train_preprocess, RandomMask(pct)]))
+                    CIFAR10_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog','horse','ship','truck']
+                    test_dl = DataLoader(test_dataset, batch_size=batch_size)
+                    acc = new_model.score(test_dl, CIFAR10_labels)
 
                     accuracies.append(acc)
 
                     if debug:
                         print("\nELAPSED TIME: ", str(time.time() - start))
 
-                if not os.exists(os.path.join(os.getcwd(),'/results_noisy/')):
+                if not os.path.exists(os.path.join(os.getcwd(),'/results_noisy/')):
                     os.mkdir(os.path.join(os.getcwd(),'/results_noisy/'))
-                if not os.exists(os.path.join(os.getcwd(),'/results_noisy/', data)):
+                if not os.path.exists(os.path.join(os.getcwd(),'/results_noisy/', data)):
                     os.mkdir(os.path.join(os.getcwd(),'/results_noisy/', data))
                 np.savetxt(os.path.join(os.getcwd(),'/results_noisy/', data, name_str), np.array(accuracies))
 
