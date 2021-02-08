@@ -3,6 +3,7 @@
 import numpy as np
 import os
 import sys
+import pickle
 import time
 import torch
 import torch.nn.functional as F
@@ -19,8 +20,20 @@ from tqdm import tqdm
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 from PIL import Image
 
+def get_features(model, dataset, device):
+    all_features = []
+    all_labels = []
+    
+    with torch.no_grad():
+        for images, labels in tqdm(DataLoader(dataset, batch_size=512, shuffle=False)):
+            features = model.encode_image(images.to(device))
 
-def main(debug=True, data="CIFAR10"):
+            all_features.append(features.cpu())
+            all_labels.append(labels.cpu())
+
+    return torch.cat(all_features).to(device), torch.cat(all_labels).to(device)
+
+def main(debug=True, data="CIFAR10", batch_size = 8, saved_embeddings = True):
     # Keep these guys here for cmd arguments eventually
     # debug = None
     # if len(args) > 1:
@@ -38,9 +51,7 @@ def main(debug=True, data="CIFAR10"):
     if device=="cuda":
         torch.cuda.empty_cache()
 
-    root = os.path.expanduser("~/.cache")
-
-    batch_size = 8
+    root = os.path.expanduser("~/.cache") 
 
     # models = ['RN50', 'ViT-B/32']
     models = ['ViT-B/32']
@@ -62,9 +73,6 @@ def main(debug=True, data="CIFAR10"):
         if debug:
            print("LOADING MODEL: " + m)
            start = time.time()
-
-        baseclip, train_preprocess = clip.load(m, device)
-        n_px = baseclip.input_resolution.item()
 
         if debug:
            print("\nELAPSED TIME: ", str(time.time() - start))
@@ -94,17 +102,34 @@ def main(debug=True, data="CIFAR10"):
                         print("PCT MISSING: ", str(pct))
                         start = time.time()
 
-                    train_base = CIFAR10(root, download=True, train=True, transform=None)
-                    train_contrastive = ContrastiveUnsupervisedDataset(train_base, transform_clean=train_preprocess, transform_noisy=Compose([train_preprocess, RandomMask(pct)]))
+                    if not saved_embeddings:
+                        with torch.no_grad():
+                            baseclip, train_preprocess = clip.load(m, device)
+                            n_px = baseclip.input_resolution.item()
+                            train_base = CIFAR100(root, download=True, train=True, transform=train_preprocess)
+                            clean_embeddings, _ = get_features(baseclip, train_base, device)
+                            CIFAR10_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog','horse','ship','truck']
+                            text_embeddings = baseclip.encode_text(clip.tokenize(['a picture of a '+label for label in CIFAR10_labels]).to(device))
+                            # clean_embeddings = clean_embeddings.requires_grad=False
+                            # text_embeddings = text_embeddings.requires_grad=False
+                            pickle.dump((clean_embeddings, text_embeddings), open('embeddings.pkl','wb'))
+                        del baseclip
+                    else:
+                        clean_embeddings, text_embeddings = pickle.load(open('embeddings.pkl','rb'))
+                        _, train_preprocess = clip.load(m, device)
+                        train_base = CIFAR10(root, download=True, train=True, transform=train_preprocess)
+
+                    
+                    train_contrastive = ContrastiveUnsupervisedDataset(train_base, clean_embeddings, transform_noisy=RandomMask(pct))
                     train_dl = DataLoader(train_contrastive, batch_size=batch_size, shuffle=True)
 
-                    new_model = ModifiedCLIP(baseclip, device=device)
+                    new_model = ModifiedCLIP(text_embeddings, device=device)
                     new_model.fit(train_dl)
 
                     test_dataset = CIFAR10(root, download=True, train=False, transform=Compose([train_preprocess, RandomMask(pct)]))
-                    CIFAR10_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog','horse','ship','truck']
+                    
                     test_dl = DataLoader(test_dataset, batch_size=batch_size)
-                    acc = new_model.score(test_dl, CIFAR10_labels)
+                    acc = new_model.score(test_dl)
 
                     accuracies.append(acc)
 
@@ -115,7 +140,7 @@ def main(debug=True, data="CIFAR10"):
                     os.mkdir(os.path.join(os.getcwd(),'/results_noisy/'))
                 if not os.path.exists(os.path.join(os.getcwd(),'/results_noisy/', data)):
                     os.mkdir(os.path.join(os.getcwd(),'/results_noisy/', data))
-                np.savetxt(os.path.join(os.getcwd(),'/results_noisy/', data, name_str), np.array(accuracies))
+                np.savetxt('results_noisy_CIFAR100', np.array(accuracies))
 
             elif trans=="Square":
                 raise NotImplementedError()
