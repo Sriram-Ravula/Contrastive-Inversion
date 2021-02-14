@@ -83,7 +83,7 @@ def get_clf(train_features, train_labels):
 
     return clf
 
-def main(debug=True, data="CIFAR100"):
+def main(debug=True, data="CIFAR100_TB_TeB_Diagonal"):
     # Keep these guys here for cmd arguments eventually
     # debug = None
     # if len(args) > 1:
@@ -94,6 +94,10 @@ def main(debug=True, data="CIFAR100"):
     # else:
     #     debug = False 
     #     print("Debug: False")
+
+    if os.path.exists(os.getcwd()+"/results/"+data+"/"):
+        shutil.rmtree(os.getcwd()+"/results/"+data+"/")
+    os.makedirs(os.getcwd()+"/results/"+data+"/")
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -102,8 +106,8 @@ def main(debug=True, data="CIFAR100"):
 
     root = os.path.expanduser("~/.cache")
 
-    #models = ['RN50', 'ViT-B/32']
-    models = ['ViT-B/32']
+    models = ['RN50', 'ViT-B/32']
+    #models = ['ViT-B/32']
 
     trans_types = ["None", "Random", "Blur", "Square"]
 
@@ -132,8 +136,9 @@ def main(debug=True, data="CIFAR100"):
            print("\nCALCULATING TRAINING FEATURES") 
            start = time.time()
 
-        train = CIFAR100(root, download=False, train=True, transform=train_preprocess)
-        train_features, train_labels = get_features(model, train, device)
+        #Comment these three lines if using train set with augmentations
+        #train = CIFAR100(root, download=False, train=True, transform=train_preprocess)
+        #train_features, train_labels = get_features(model, train, device)
 
         if debug:
            print("\nELAPSED TIME: ", str(time.time() - start)) 
@@ -142,7 +147,7 @@ def main(debug=True, data="CIFAR100"):
             print("\nPERFORMING CROSS-VALIDATION TO FIND BEST LOGISTIC REGRESSION MODEL")
             start = time.time()
 
-        clf = get_clf(train_features, train_labels)
+        #clf = get_clf(train_features, train_labels)
 
         if debug:
            print("\nELAPSED TIME: ", str(time.time() - start)) 
@@ -163,6 +168,11 @@ def main(debug=True, data="CIFAR100"):
                 test_preprocess = train_preprocess
                 test = CIFAR100(root, download=False, train=False, transform=test_preprocess)
                 test_features, test_labels = get_features(model, test, device)
+
+                #Comment these three lines if using a non-augmented training set
+                train = CIFAR100(root, download=False, train=True, transform=test_preprocess)
+                train_features, train_labels = get_features(model, train, device)
+                clf = get_clf(train_features, train_labels)
 
                 predictions = clf.predict(test_features)
                 accuracy = np.mean((test_labels == predictions).astype(np.float)) * 100.
@@ -190,6 +200,11 @@ def main(debug=True, data="CIFAR100"):
                     test = CIFAR100(root, download=False, train=False, transform=test_preprocess)
                     test_features, test_labels = get_features(model, test, device)
 
+                    #Comment these three lines if using a non-augmented training set
+                    train = CIFAR100(root, download=False, train=True, transform=test_preprocess)
+                    train_features, train_labels = get_features(model, train, device)
+                    clf = get_clf(train_features, train_labels)
+
                     predictions = clf.predict(test_features)
                     accuracy = np.mean((test_labels == predictions).astype(np.float)) * 100.
                     print(f"Accuracy = {accuracy:.3f}")
@@ -216,6 +231,11 @@ def main(debug=True, data="CIFAR100"):
                     test = CIFAR100(root, download=False, train=False, transform=test_preprocess)
                     test_features, test_labels = get_features(model, test, device)
 
+                    #Comment these three lines if using a non-augmented training set
+                    train = CIFAR100(root, download=False, train=True, transform=test_preprocess)
+                    train_features, train_labels = get_features(model, train, device)
+                    clf = get_clf(train_features, train_labels)
+
                     predictions = clf.predict(test_features)
                     accuracy = np.mean((test_labels == predictions).astype(np.float)) * 100.
                     print(f"Accuracy = {accuracy:.3f}")
@@ -241,6 +261,11 @@ def main(debug=True, data="CIFAR100"):
                     test_preprocess = get_test_transform(trans, [blur_size, std], n_px)
                     test = CIFAR100(root, download=False, train=False, transform=test_preprocess)
                     test_features, test_labels = get_features(model, test, device)
+
+                    #Comment these three lines if using a non-augmented training set
+                    train = CIFAR100(root, download=False, train=True, transform=test_preprocess)
+                    train_features, train_labels = get_features(model, train, device)
+                    clf = get_clf(train_features, train_labels)
 
                     predictions = clf.predict(test_features)
                     accuracy = np.mean((test_labels == predictions).astype(np.float)) * 100.
