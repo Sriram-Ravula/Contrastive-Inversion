@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import model
 import clip
 import copy
+import pickle
 from tqdm import tqdm
 
 class ContrastiveLoss(torch.nn.modules.loss._WeightedLoss):
@@ -15,7 +16,7 @@ class ContrastiveLoss(torch.nn.modules.loss._WeightedLoss):
     similarity between clean and noisy versions of the same image, while minimizing
     similarity of clean and noisy versions of different images.
     """
-    def __init__(self, weight: typing.Optional[Tensor] = None, size_average=None, reduce=None, reduction: str = 'mean', tau=0.07, device='cpu') -> None:
+    def __init__(self, weight: typing.Optional[Tensor] = None, size_average=None, reduce=None, reduction: str = 'mean', tau=1, device='cpu') -> None:
         super(ContrastiveLoss, self).__init__(weight, size_average, reduce, reduction)
         self.tau = tau
         self.device = device
@@ -29,6 +30,7 @@ class ContrastiveLoss(torch.nn.modules.loss._WeightedLoss):
         exp_sim_mat = torch.exp(sim_mat/self.tau)
         mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).to(self.device)
         logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
+        
         loss = (torch.sum(torch.diag(logmat, diagonal=1)) + torch.sum(torch.diag(logmat, diagonal=-1)))/2
         return loss/bsz if self.reduction == 'mean' else loss
 
@@ -49,7 +51,7 @@ class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
 
 
 class ModifiedCLIP(torch.nn.Module):
-    def __init__(self, text_embeddings, device='cpu'):
+    def __init__(self, baseclip, text_embeddings, device='cpu'):
         r'''For now, this only creates a separate copy of the visual transformer,
         using the same architecture as the one for clean images.
         '''
@@ -58,18 +60,19 @@ class ModifiedCLIP(torch.nn.Module):
         self.device = device
 
         # Somehow derive parameters from base clip
-        self.noisy_visual_encoder = model.VisualTransformer(
-                                            224,
-                                            3,
-                                            256,
-                                            2,
-                                            1,
-                                            512
-                                        ).to(device)
+        # self.noisy_visual_encoder = model.VisualTransformer(
+        #                                     224,
+        #                                     3,
+        #                                     256,
+        #                                     2,
+        #                                     1,
+        #                                     512
+        #                                 ).to(device)
+        self.noisy_visual_encoder = clip.load('RN50', device)[0].visual
         self.noisy_visual_encoder.train()
 
     def encode_noisy_image(self, image):
-        return self.noisy_visual_encoder(image.type(torch.float32))
+        return self.noisy_visual_encoder(image.type(torch.float16))
 
     def forward(self, image, text=None):
         r'''Forward method taken from original CLIP model. The use is the same as
@@ -84,24 +87,23 @@ class ModifiedCLIP(torch.nn.Module):
 
         # cosine similarity as logits
         logit_scale = 0.07
-        logits_per_image = logit_scale * image_features.type(torch.float32) @ text_features.type(torch.float32).t() # Funny thing, here the original code spells 'iamge' instead of image. Hidden copyright protection? :p
-        logits_per_text = logit_scale * text_features.type(torch.float32) @ image_features.type(torch.float32).t()
+        logits_per_image = logit_scale * image_features.type(torch.float16) @ text_features.type(torch.float16).t() # Funny thing, here the original code spells 'iamge' instead of image. Hidden copyright protection? :p
+        logits_per_text = logit_scale * text_features.type(torch.float16) @ image_features.type(torch.float16).t()
 
         # shape = [global_batch_size, global_batch_size]
         return logits_per_image, logits_per_text
 
-    def fit(self, train_dataloader, valid_dataloader=None, epochs=5, batches_per_epoch=400):
+    def fit(self, train_dataloader, valid_dataloader=None, epochs=5):
         loss_fun = ContrastiveLoss(device=self.device)
-        optim = torch.optim.Adam(self.noisy_visual_encoder.parameters(), lr=1e-4)
+        optim = torch.optim.SGD(self.noisy_visual_encoder.parameters(), lr=1e-4, momentum=0.7)
         for t in range(epochs):
             self.noisy_visual_encoder.train()
             for i, (embed_clean, image_noisy) in enumerate(train_dataloader):
-                if i >= batches_per_epoch:
-                    break
                 optim.zero_grad()
                 embed_noisy = self.encode_noisy_image(image_noisy.to(self.device))
                 loss = loss_fun(embed_clean.to(self.device), embed_noisy)
-                print('Epoch {0:}, \tBatch {1:}\tLoss: {2:.5f}'.format(t+1, i+1, loss.item()))
+                if(i % 20 == 0):
+                    print('Epoch {0:}, \tBatch {1:}\tLoss: {2:.5f}'.format(t+1, i+1, loss.item()))
                 loss.backward()
                 optim.step()
 

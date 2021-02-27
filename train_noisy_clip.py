@@ -33,7 +33,7 @@ def get_features(model, dataset, device):
 
     return torch.cat(all_features).to(device), torch.cat(all_labels).to(device)
 
-def main(debug=True, data="CIFAR10", batch_size = 8, saved_embeddings = True):
+def main(debug=True, data="CIFAR10", batch_size = 128, saved_embeddings = True):
     # Keep these guys here for cmd arguments eventually
     # debug = None
     # if len(args) > 1:
@@ -54,7 +54,7 @@ def main(debug=True, data="CIFAR10", batch_size = 8, saved_embeddings = True):
     root = os.path.expanduser("~/.cache") 
 
     # models = ['RN50', 'ViT-B/32']
-    models = ['ViT-B/32']
+    models = ['RN50']
 
     # trans_types = ["None", "Random", "Blur", "Square"]
     trans_types = ['Random']
@@ -106,30 +106,31 @@ def main(debug=True, data="CIFAR10", batch_size = 8, saved_embeddings = True):
                         with torch.no_grad():
                             baseclip, train_preprocess = clip.load(m, device)
                             n_px = baseclip.input_resolution.item()
-                            train_base = CIFAR100(root, download=True, train=True, transform=train_preprocess)
+                            train_base = CIFAR10(root, download=True, train=True, transform=train_preprocess)
                             clean_embeddings, _ = get_features(baseclip, train_base, device)
                             CIFAR10_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog','horse','ship','truck']
                             text_embeddings = baseclip.encode_text(clip.tokenize(['a picture of a '+label for label in CIFAR10_labels]).to(device))
                             # clean_embeddings = clean_embeddings.requires_grad=False
                             # text_embeddings = text_embeddings.requires_grad=False
                             pickle.dump((clean_embeddings, text_embeddings), open('embeddings.pkl','wb'))
-                        del baseclip
+                        # del baseclip
                     else:
                         clean_embeddings, text_embeddings = pickle.load(open('embeddings.pkl','rb'))
-                        _, train_preprocess = clip.load(m, device)
+                        baseclip, train_preprocess = clip.load(m, device)
                         train_base = CIFAR10(root, download=True, train=True, transform=train_preprocess)
 
                     
                     train_contrastive = ContrastiveUnsupervisedDataset(train_base, clean_embeddings, transform_noisy=RandomMask(pct))
                     train_dl = DataLoader(train_contrastive, batch_size=batch_size, shuffle=True)
 
-                    new_model = ModifiedCLIP(text_embeddings, device=device)
+                    new_model = ModifiedCLIP(baseclip, text_embeddings, device=device)
                     new_model.fit(train_dl)
 
                     test_dataset = CIFAR10(root, download=True, train=False, transform=Compose([train_preprocess, RandomMask(pct)]))
                     
                     test_dl = DataLoader(test_dataset, batch_size=batch_size)
                     acc = new_model.score(test_dl)
+                    print('Accuracy: {:.5f}'.format(acc))
 
                     accuracies.append(acc)
 
