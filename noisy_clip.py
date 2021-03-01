@@ -51,7 +51,7 @@ class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
 
 
 class ModifiedCLIP(torch.nn.Module):
-    def __init__(self, baseclip, text_embeddings, device='cpu'):
+    def __init__(self, baseclip_type, text_embeddings, device='cpu'):
         r'''For now, this only creates a separate copy of the visual transformer,
         using the same architecture as the one for clean images.
         '''
@@ -68,7 +68,7 @@ class ModifiedCLIP(torch.nn.Module):
         #                                     1,
         #                                     512
         #                                 ).to(device)
-        self.noisy_visual_encoder = clip.load('RN50', device)[0].visual
+        self.noisy_visual_encoder = clip.load(baseclip_type, device)[0].visual
         self.noisy_visual_encoder.train()
 
     def encode_noisy_image(self, image):
@@ -93,7 +93,7 @@ class ModifiedCLIP(torch.nn.Module):
         # shape = [global_batch_size, global_batch_size]
         return logits_per_image, logits_per_text
 
-    def fit(self, train_dataloader, valid_dataloader=None, epochs=5):
+    def fit(self, train_dataloader, valid_dataloader=None, epochs=10):
         loss_fun = ContrastiveLoss(device=self.device)
         optim = torch.optim.SGD(self.noisy_visual_encoder.parameters(), lr=1e-4, momentum=0.7)
         for t in range(epochs):
@@ -102,7 +102,7 @@ class ModifiedCLIP(torch.nn.Module):
                 optim.zero_grad()
                 embed_noisy = self.encode_noisy_image(image_noisy.to(self.device))
                 loss = loss_fun(embed_clean.to(self.device), embed_noisy)
-                if(i % 20 == 0):
+                if((i+1) % 100 == 0):
                     print('Epoch {0:}, \tBatch {1:}\tLoss: {2:.5f}'.format(t+1, i+1, loss.item()))
                 loss.backward()
                 optim.step()
@@ -116,15 +116,13 @@ class ModifiedCLIP(torch.nn.Module):
 
         return None
 
-    def score(self, test_dataloader, batches_per_epoch=100):
+    def score(self, test_dataloader):
         
         self.noisy_visual_encoder.eval()
         total = 0
         corr = 0
         with torch.no_grad():
             for i, (images_noisy, labels) in tqdm(enumerate(test_dataloader)):
-                if i >= batches_per_epoch:
-                    break
                 image_logits, _ = self.forward(images_noisy.to(self.device))
                 preds = np.argmax(image_logits.softmax(dim=-1).cpu().numpy(), axis=1)
                 total += len(preds)

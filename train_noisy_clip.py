@@ -33,7 +33,7 @@ def get_features(model, dataset, device):
 
     return torch.cat(all_features).to(device), torch.cat(all_labels).to(device)
 
-def main(debug=True, data="CIFAR10", batch_size = 128, saved_embeddings = True):
+def main(debug=True, data="CIFAR10", batch_size = 128, saved_embeddings = False):
     # Keep these guys here for cmd arguments eventually
     # debug = None
     # if len(args) > 1:
@@ -51,7 +51,7 @@ def main(debug=True, data="CIFAR10", batch_size = 128, saved_embeddings = True):
     if device=="cuda":
         torch.cuda.empty_cache()
 
-    root = os.path.expanduser("~/.cache") 
+    root = './' 
 
     # models = ['RN50', 'ViT-B/32']
     models = ['RN50']
@@ -59,8 +59,8 @@ def main(debug=True, data="CIFAR10", batch_size = 128, saved_embeddings = True):
     # trans_types = ["None", "Random", "Blur", "Square"]
     trans_types = ['Random']
 
-    # pct_missings = [0.001, 0.005, 0.01, 0.05, 0.1, 0.2, 0.3, 0.5]
-    pct_missings = [0.01]
+    pct_missings = [0.001, 0.005, 0.01, 0.05, 0.1, 0.2, 0.3, 0.5]
+    # pct_missings = [0.01]
 
     sq_lens = [10, 20, 30, 50, 75, 100, 150, 200]
     # sq_lens = [20]
@@ -113,6 +113,7 @@ def main(debug=True, data="CIFAR10", batch_size = 128, saved_embeddings = True):
                             # clean_embeddings = clean_embeddings.requires_grad=False
                             # text_embeddings = text_embeddings.requires_grad=False
                             pickle.dump((clean_embeddings, text_embeddings), open('embeddings.pkl','wb'))
+                            saved_embeddings = True
                         # del baseclip
                     else:
                         clean_embeddings, text_embeddings = pickle.load(open('embeddings.pkl','rb'))
@@ -123,7 +124,7 @@ def main(debug=True, data="CIFAR10", batch_size = 128, saved_embeddings = True):
                     train_contrastive = ContrastiveUnsupervisedDataset(train_base, clean_embeddings, transform_noisy=RandomMask(pct))
                     train_dl = DataLoader(train_contrastive, batch_size=batch_size, shuffle=True)
 
-                    new_model = ModifiedCLIP(baseclip, text_embeddings, device=device)
+                    new_model = ModifiedCLIP(m, text_embeddings, device=device)
                     new_model.fit(train_dl)
 
                     test_dataset = CIFAR10(root, download=True, train=False, transform=Compose([train_preprocess, RandomMask(pct)]))
@@ -141,7 +142,7 @@ def main(debug=True, data="CIFAR10", batch_size = 128, saved_embeddings = True):
                     os.mkdir(os.path.join(os.getcwd(),'/results_noisy/'))
                 if not os.path.exists(os.path.join(os.getcwd(),'/results_noisy/', data)):
                     os.mkdir(os.path.join(os.getcwd(),'/results_noisy/', data))
-                np.savetxt('results_noisy_CIFAR100', np.array(accuracies))
+                np.savetxt(os.path.join(os.getcwd(),'/results_noisy/', data, name_str), np.array(accuracies))
 
             elif trans=="Square":
                 raise NotImplementedError()
