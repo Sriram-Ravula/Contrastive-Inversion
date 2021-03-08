@@ -1,0 +1,32 @@
+seed: 1234
+
+experiment_name: "resnet50_baseline_500_lowerlr"
+
+num_nodes: 1
+gpus: 4
+
+encoder: "resnet"
+
+pretrained: True
+
+lr: 0.0002
+
+dataset: "Imagenet-100"
+num_classes: 100
+subset_file_name: "imagenet100.txt"
+
+dataset_dir: "../Datasets/ILSVRC/Data/CLS-LOC/"
+
+batch_size: 100
+
+workers: 12
+
+distributed_backend: "ddp"
+
+#training
+max_epochs: 500
+log_save_interval: 5 #set this to be equal to num_epochs if row_log_interval is 1
+row_log_interval: 1  
+
+#validation
+check_val_every_n_epoch: 5
