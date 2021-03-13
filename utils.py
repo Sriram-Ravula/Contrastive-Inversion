@@ -14,20 +14,26 @@ class RandomMask(object):
 
     Args:
         percent_missing: percent of the pixels to mask
+        fixed: whether the mask is fixed for all images
     """
     
-    def __init__(self, percent_missing):
+    def __init__(self, percent_missing, fixed=False):
         assert isinstance(percent_missing, float)
         
         self.percent_missing = percent_missing
+        self.fixed = fixed
+        self.mask = None
     
     def __call__(self, image):
         h, w = image.shape[-2:]
+        if self.fixed and self.mask is not None:
+            return image*self.mask.view(h,w)
         
         removed_secs = np.random.choice(h*w, int(h*w*self.percent_missing))
-
         mask = torch.ones(h*w)
         mask[removed_secs] = 0
+        if self.fixed:
+            self.mask = mask
         
         return image*mask.view(h, w)
 
@@ -40,9 +46,10 @@ class SquareMask(object):
         length: side length of the square masked area
         offset: {"center": center the square in the image,
                 "random": perform a random vertical and horizontal offset of the square}
+        fixed: whether the mask is the same for all images (only useful with offset="random")
     """
     
-    def __init__(self, length, offset="center"):
+    def __init__(self, length, offset="center", fixed=False):
         viable_offsets = ["center", "random"]
         
         assert isinstance(offset, str)
@@ -52,12 +59,17 @@ class SquareMask(object):
         
         self.offset = offset
         self.length = length
+        self.fixed = fixed
+        self.mask = None
     
     def __call__(self, image):
         h, w = image.shape[-2:]
-        
         assert (self.length < h and self.length < w)
         
+        if self.fixed and self.mask is not None:
+            return image*self.mask
+            
+            
         if self.offset == "random":
             #The random offsets define the center of the square region
             h_offset = np.random.choice(np.arange(self.length//2, h-(self.length//2)+1))
@@ -70,6 +82,8 @@ class SquareMask(object):
 
             mask = torch.ones(h, w)
             mask[x, y] = 0
+            if self.fixed:
+                self.mask = mask
             
             return image*mask
         
@@ -85,6 +99,8 @@ class SquareMask(object):
 
             mask = torch.ones(h, w)
             mask[x, y] = 0
+            if self.fixed:
+                self.mask = mask
             
             return image*mask
 
