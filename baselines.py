@@ -8,7 +8,8 @@ import pytorch_lightning as pl
 from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 import torchvision.models as models
-from utils import ImageNetSquareMask, ImageNetSquareMaskVal, img_grid, yaml_config_hook, top_k_accuracy, get_subset, map_classes
+from utils import ImageNetSquareMask, ImageNetSquareMaskVal, img_grid, yaml_config_hook, top_k_accuracy, get_subset, map_classes, ImageNetRandomMask, ImageNetRandomMaskVal
+import clip
 
 class Baseline(LightningModule):
     def __init__(self, args):
@@ -24,28 +25,38 @@ class Baseline(LightningModule):
             #(1) load a resnet model with or without ImageNet Pre-Training
             self.encoder = models.resnet50(pretrained=self.hparams.pretrained)
 
-            """
-            #(2) freeze or unfreeze parameters depending on if we would like to fine-tune the model or just do linear probe
-            for param in self.encoder.parameters():
-                param.requires_grad=self.hparams.finetune
-            """
-
-            #(3) replace the last, linear layer of Resnet with one that has appropriate dimension for CIFAR-10
+            #(2) replace the last, linear layer of Resnet with one that has appropriate dimension for CIFAR-10
             self.encoder.fc = nn.Linear(self.encoder.fc.in_features, self.hparams.num_classes) #replace the resnet output with correct number of classes
-        
-        """
-        #Figure out how to get CLIP finetuned!
-        elif self.hparams.encoder == 'clip-resnet':
-            model, preprocess = clip.load('RN50', device='cpu', jit=False)
-        """
+
+        elif self.hparams.encoder == 'clip':
+            clip_type = self.hparams.clip_model
+
+            #Extract the visual encoder from the pre-trained CLIP
+            self.baseclip = clip.load(clip_type, device='cpu', jit=False)[0].visual
+
+            if clip_type == 'ViT-B/32':
+                self.output = nn.Linear(512, self.hparams.num_classes)
+            elif clip_type == 'RN50':
+                self.output = nn.Linear(1024, self.hparams.num_classes)
 
         self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, x):
-        return self.encoder(x)
+        if self.hparams.encoder == 'clip':
+            n = x.size(0)
+            x = self.baseclip(x.type(torch.float16))
+
+            return self.output(x.view(n, -1).float())
+
+        elif self.hparams.encoder == 'resnet':
+            return self.encoder(x)
     
     def configure_optimizers(self):
-        opt = torch.optim.Adam(self.encoder.parameters(), lr = self.hparams.lr)
+        if self.hparams.encoder == 'clip':
+            opt = torch.optim.Adam(list(self.baseclip.parameters()) + list(self.output.parameters()), lr = self.hparams.lr)
+
+        elif self.hparams.encoder == 'resnet':
+            opt = torch.optim.Adam(self.encoder.parameters(), lr = self.hparams.lr)
 
         return opt
 
@@ -71,10 +82,15 @@ class Baseline(LightningModule):
 
     def train_dataloader(self):
         if self.hparams.dataset == "Imagenet-100":
+            if self.hparams.distortion == "squaremask":
+                transform = ImageNetSquareMask(mask_length = self.hparams.mask_length)
+            elif self.hparams.distortion == "randommask":
+                transform = ImageNetRandomMask(percent_missing = self.hparams.percent_missing)
+            
             train_dataset = torchvision.datasets.ImageNet(
                 root=self.hparams.dataset_dir,
                 split="train",
-                transform=ImageNetSquareMask()
+                transform=transform
             )
 
             filename = self.hparams.dataset_dir + self.hparams.subset_file_name
@@ -92,10 +108,15 @@ class Baseline(LightningModule):
 
     def val_dataloader(self):
         if self.hparams.dataset == "Imagenet-100":
+            if self.hparams.distortion == "squaremask":
+                transform = ImageNetSquareMaskVal(mask_length = self.hparams.mask_length)
+            elif self.hparams.distortion == "randommask":
+                transform = ImageNetRandomMaskVal(percent_missing = self.hparams.percent_missing)
+
             val_dataset = torchvision.datasets.ImageNet(
                 root=self.hparams.dataset_dir,
                 split="val",
-                transform=ImageNetSquareMaskVal()
+                transform=transform
             )
 
             filename = self.hparams.dataset_dir + self.hparams.subset_file_name
@@ -115,11 +136,11 @@ class Baseline(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-
+        
         if self.hparams.dataset == "Imagenet-100":
             y = map_classes(y, self.class_map)
 
-        if batch_idx == 0 and self.current_epoch < 20:
+        if batch_idx == 0 and self.current_epoch < 15:
             self.logger.experiment.add_image('Val_Sample', img_grid(x), self.current_epoch)
 
         logits = self.forward(x)
