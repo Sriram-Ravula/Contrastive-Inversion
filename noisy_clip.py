@@ -22,21 +22,25 @@ from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normal
 from torchvision.datasets import CIFAR10
 
 class ContrastiveLoss(torch.nn.modules.loss._WeightedLoss):
-    r"""Contrastive loss within a batch. The loss calculated tries to maximize
+    """
+    Contrastive loss within a batch. The loss calculated tries to maximize
     similarity between clean and noisy versions of the same image, while minimizing
     similarity of clean and noisy versions of different images.
     """
-    def __init__(self, weight: typing.Optional[Tensor] = None, size_average=None, reduce=None, reduction: str = 'mean', tau=1, device='cpu') -> None:
+    def __init__(self, weight: typing.Optional[Tensor] = None, size_average=None, reduce=None, reduction: str = 'mean', tau=1) -> None:
         super(ContrastiveLoss, self).__init__(weight, size_average, reduce, reduction)
         self.tau = tau
-        self.device = device
 
     def forward(self, input1: Tensor, input2: Tensor) -> Tensor:
         bsz = input1.shape[0]
+
+        # Create similarity matrix between embeddings.
         full_tensor = torch.cat([input1.unsqueeze(1),input2.unsqueeze(1)], dim=1).view(2*bsz, 1, -1)
         tensor1 = full_tensor.expand(2*bsz,2*bsz,-1)
         tensor2 = full_tensor.permute(1,0,2).expand(2*bsz,2*bsz,-1)
         sim_mat = torch.nn.CosineSimilarity(dim=-1)(tensor1,tensor2)
+
+        # Calculate logits used for the contrastive loss.
         exp_sim_mat = torch.exp(sim_mat/self.tau)
         mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).to(self.device)
         logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
@@ -45,6 +49,11 @@ class ContrastiveLoss(torch.nn.modules.loss._WeightedLoss):
         return loss/bsz if self.reduction == 'mean' else loss
 
 class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
+    """
+    This class takes a dataset and creates a contrastive version of that dataset.
+    Each item of the dataset is a tuple of a clean image and a noisy image (two
+    separate transformations.)
+    """
     def __init__(self, clean_dataset, transform_clean=None, transform_noisy=None):
         self.base = clean_dataset
         self.transform_clean = transform_clean
@@ -62,6 +71,9 @@ class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
         return image_clean, image_noisy
 
 class CIFAR10CLIPDataset(LightningDataModule):
+    """
+    Old class for use with CIFAR10. Deprecated since experiments have moved on to ImageNet.
+    """
     def __init__(self, train_preprocess, noise_transform, data_dir='./', batch_size=64):
         super(CIFAR10CLIPDataset, self).__init__()
         self.train_preprocess = train_preprocess
@@ -94,6 +106,10 @@ class CIFAR10CLIPDataset(LightningDataModule):
 
 
 class ImageNetCLIPDataset(LightningDataModule):
+    """
+    Wrapper class for the ImageNet dataset, handles all data manipulations
+    required in order to train the NoisyCLIP model.
+    """
     def __init__(self, args):
         super(ImageNetCLIPDataset, self).__init__()
 
@@ -117,11 +133,13 @@ class ImageNetCLIPDataset(LightningDataModule):
 
         filename = self.hparams.dataset_dir + self.hparams.subset_file_name
 
+        # Get the subset, as well as its labels as text.
         train_data, og_to_new_dict, text_labels = get_subset(train_data, filename=filename, return_class_labels=True)
         self.val_data, _ = get_subset(val_data, filename=filename)
 
         self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform, transform_noisy=ImageNetSquareMask)
 
+        # Save mapping/labels to be reused.
         if self.hparams.save_mapping_and_text:
             pickle.dump((og_to_new_dict, text_labels), open(self.hparams.mapping_and_text_file, 'wb'))
 
@@ -134,9 +152,11 @@ class ImageNetCLIPDataset(LightningDataModule):
 
 class NoisyCLIP(LightningModule):
     def __init__(self, args):
-        r'''For now, this only creates a separate copy of the visual transformer,
-        using the same architecture as the one for clean images.
-        '''
+        """
+        This model is comprised of two parts: the first is a copy of the baseline
+        CLIP model, and the second a copy of its visual encoder. The original image
+        encoder is kept frozen, and only its copy is trained.
+        """
         super(NoisyCLIP, self).__init__()
         self.hparams = args
         self.world_size = self.hparams.num_nodes * self.hparams.gpus
@@ -150,6 +170,9 @@ class NoisyCLIP(LightningModule):
             self.class_map = og_to_new_dict
             text_list = ['A photo of '+label.strip().replace('_',' ') for label in text_labels]
 
+        if self.hparams.loss == 'contrastive':
+            self.criterion = ContrastiveLoss(tau=self.hparams.loss_tau)
+
         self.logit_scale = self.hparams.logit_scale
         self.baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0]
         self.baseclip.eval()
@@ -161,26 +184,15 @@ class NoisyCLIP(LightningModule):
         optim = torch.optim.SGD(self.noisy_visual_encoder.parameters(), lr=1e-4, momentum=0.7)
         return optim
 
-    def contrastive_loss(self, input1, input2, tau=1, reduction='mean'):
-        bsz = input1.shape[0]
-        full_tensor = torch.cat([input1.unsqueeze(1),input2.unsqueeze(1)], dim=1).view(2*bsz, 1, -1)
-        tensor1 = full_tensor.expand(2*bsz,2*bsz,-1)
-        tensor2 = full_tensor.permute(1,0,2).expand(2*bsz,2*bsz,-1)
-        sim_mat = torch.nn.CosineSimilarity(dim=-1)(tensor1,tensor2)
-        exp_sim_mat = torch.exp(sim_mat/tau)
-        mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).to(self.device)
-        logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
-
-        loss = (torch.sum(torch.diag(logmat, diagonal=1)) + torch.sum(torch.diag(logmat, diagonal=-1)))/2
-        return loss/bsz if reduction == 'mean' else loss
-
     def encode_noisy_image(self, image):
         return self.noisy_visual_encoder(image.type(torch.float16))
 
     def forward(self, image, text=None):
-        r'''Forward method taken from original CLIP model. The use is the same as
+        """
+        This forward method is taken from original CLIP model. The use is the same as
         the original function, apart from using the encoder trained for noise images.
-        '''
+        """
+
         image_features = self.encode_noisy_image(image)
         text_features = self.text_embeddings
 
@@ -224,12 +236,12 @@ class NoisyCLIP(LightningModule):
 
         image_logits, _ = self.forward(images_noisy)
 
-        # loss = self.criterion(logits, labels)
+        loss = nn.CrossEntropyLoss()(logits, labels)
         top_1 = top_k_accuracy(logits, labels, k=1)
         top_5 = top_k_accuracy(logits, labels, k=5)
 
         loss_dict = {
-            # "Val_Loss": loss,
+            "Val_Loss": loss,
             "Top_1": top_1,
             "Top_5": top_5
         }
