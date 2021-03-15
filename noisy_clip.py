@@ -117,6 +117,11 @@ class ImageNetCLIPDataset(LightningDataModule):
         # self.noise_transform = self.hparams.noise_transform
         self.dataset_dir = self.hparams.dataset_dir
         self.batch_size = self.hparams.batch_size
+        if self.hparams.distortion == "squaremask":
+            self.train_set_transform = ImageNetSquareMask(mask_length = self.hparams.mask_length)
+            self.val_set_transform = ImageNetSquareMaskVal(mask_length = self.hparams.mask_length)
+        else:
+            raise NotImplementedError('Noisy trasnformation not implemented yet.')
 
 
     def setup(self, stage=None):
@@ -128,7 +133,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         val_data = torchvision.datasets.ImageNet(
             root=self.hparams.dataset_dir,
             split="val",
-            transform=ImageNetSquareMaskVal()
+            transform=self.val_set_transform
         )
 
         filename = self.hparams.dataset_dir + self.hparams.subset_file_name
@@ -137,7 +142,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         train_data, og_to_new_dict, text_labels = get_subset(train_data, filename=filename, return_class_labels=True)
         self.val_data, _ = get_subset(val_data, filename=filename)
 
-        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform, transform_noisy=ImageNetSquareMask)
+        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform(), transform_noisy=self.train_set_transform)
 
         # Save mapping/labels to be reused.
         if self.hparams.save_mapping_and_text:
@@ -169,9 +174,13 @@ class NoisyCLIP(LightningModule):
             og_to_new_dict, text_labels = pickle.load(open(self.hparams.mapping_and_text_file, 'rb'))
             self.class_map = og_to_new_dict
             text_list = ['A photo of '+label.strip().replace('_',' ') for label in text_labels]
+        else:
+            raise NotImplementedError('Handling of the dataset not implemented yet.')
 
         if self.hparams.loss == 'contrastive':
             self.criterion = ContrastiveLoss(tau=self.hparams.loss_tau)
+        else:
+            raise NotImplementedError('Loss function not implemented yet.')
 
         self.logit_scale = self.hparams.logit_scale
         self.baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0]

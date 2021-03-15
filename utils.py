@@ -108,7 +108,7 @@ class ImageNetBaseTransform:
     """
     Torchvision composition of transforms equivalent to the one required for CLIP clean images.
     """
-    def __init__(self, mask_length = 50):
+    def __init__(self):
         normalize = transforms.Normalize(
             mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
         )
