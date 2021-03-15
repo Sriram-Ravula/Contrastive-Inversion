@@ -11,7 +11,12 @@ import copy
 import pickle
 from tqdm import tqdm
 
-import pytorch_lightning as pl
+import torchvision
+
+from utils import *
+
+from pytorch_lightning import Trainer, LightningModule, LightningDataModule, seed_everything
+from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data  import random_split, DataLoader
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 from torchvision.datasets import CIFAR10
@@ -35,25 +40,28 @@ class ContrastiveLoss(torch.nn.modules.loss._WeightedLoss):
         exp_sim_mat = torch.exp(sim_mat/self.tau)
         mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).to(self.device)
         logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
-        
+
         loss = (torch.sum(torch.diag(logmat, diagonal=1)) + torch.sum(torch.diag(logmat, diagonal=-1)))/2
         return loss/bsz if self.reduction == 'mean' else loss
 
 class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
-    def __init__(self, clean_dataset, transform_noisy=None):
+    def __init__(self, clean_dataset, transform_clean=None, transform_noisy=None):
         self.base = clean_dataset
+        self.transform_clean = transform_clean
         self.transform_noisy = transform_noisy
 
     def __len__(self):
         return len(self.base)
 
     def __getitem__(self, idx):
-        image_clean, _ = self.base[idx]
-        if self.transform_noisy:
-            image_noisy = self.transform_noisy(image_clean)
+        image_orig, _ = self.base[idx]
+
+        image_clean = self.transform_clean(image_orig) if self.transform_clean is not None else image_orig
+        image_noisy = self.transform_noisy(image_orig) if self.transform_noisy is not None else image_orig
+
         return image_clean, image_noisy
 
-class CIFAR10CLIPDataset(pl.LightningDataModule):
+class CIFAR10CLIPDataset(LightningDataModule):
     def __init__(self, train_preprocess, noise_transform, data_dir='./', batch_size=64):
         super(CIFAR10CLIPDataset, self).__init__()
         self.train_preprocess = train_preprocess
@@ -71,7 +79,7 @@ class CIFAR10CLIPDataset(pl.LightningDataModule):
             train_data, val_data = random_split(train_dataset_full, [40000,10000])
             self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, self.noise_transform)
             self.val_contrastive = ContrastiveUnsupervisedDataset(val_data, self.noise_transform)
-        
+
         if stage == 'test' or stage is None:
             self.test_data = CIFAR10(self.data_dir, download=False, train=False, transform=Compose([self.train_preprocess, self.noise_transform]))
 
@@ -85,17 +93,68 @@ class CIFAR10CLIPDataset(pl.LightningDataModule):
         return DataLoader(self.test_data, batch_size=2*self.batch_size)
 
 
+class ImageNetCLIPDataset(LightningDataModule):
+    def __init__(self, args):
+        super(ImageNetCLIPDataset, self).__init__()
 
-class ModifiedCLIP(pl.LightningModule):
-    def __init__(self, baseclip_type, text_list, device='cpu'):
+        self.hparams = args
+        # self.noise_transform = self.hparams.noise_transform
+        self.dataset_dir = self.hparams.dataset_dir
+        self.batch_size = self.hparams.batch_size
+
+
+    def setup(self, stage=None):
+        train_data = torchvision.datasets.ImageNet(
+        	root=self.hparams.dataset_dir,
+            split="train",
+            transform=None
+        )
+        val_data = torchvision.datasets.ImageNet(
+            root=self.hparams.dataset_dir,
+            split="val",
+            transform=ImageNetSquareMaskVal()
+        )
+
+        filename = self.hparams.dataset_dir + self.hparams.subset_file_name
+
+        train_data, og_to_new_dict, text_labels = get_subset(train_data, filename=filename, return_class_labels=True)
+        self.val_data, _ = get_subset(val_data, filename=filename)
+
+        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform, transform_noisy=ImageNetSquareMask)
+
+        if self.hparams.save_mapping_and_text:
+            pickle.dump((og_to_new_dict, text_labels), open(self.hparams.mapping_and_text_file, 'wb'))
+
+    def train_dataloader(self):
+        return DataLoader(self.train_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=True)
+
+    def val_dataloader(self):
+        return DataLoader(self.val_data, batch_size=2*self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
+
+
+class NoisyCLIP(LightningModule):
+    def __init__(self, args):
         r'''For now, this only creates a separate copy of the visual transformer,
         using the same architecture as the one for clean images.
         '''
-        super(ModifiedCLIP, self).__init__()
-        self.baseclip = clip.load(baseclip_type, device, jit=False)[0]
+        super(NoisyCLIP, self).__init__()
+        self.hparams = args
+        self.world_size = self.hparams.num_nodes * self.hparams.gpus
+
+        if self.hparams.dataset == "Imagenet-100":
+            self.N_val = 50000 # Default ImageNet validation set.
+            if self.hparams.mapping_and_text_file is None:
+                raise ValueError('No file from which to read mapping/text labels was specified.')
+
+            og_to_new_dict, text_labels = pickle.load(open(self.hparams.mapping_and_text_file, 'rb'))
+            self.class_map = og_to_new_dict
+            text_list = ['A photo of '+label.strip().replace('_',' ') for label in text_labels]
+
+        self.logit_scale = self.hparams.logit_scale
+        self.baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0]
         self.baseclip.eval()
-        self.text_embeddings = self.baseclip.encode_text(clip.tokenize(text_list).to(device))
-        self.noisy_visual_encoder = clip.load(baseclip_type, device, jit=False)[0].visual
+        self.text_embeddings = self.baseclip.encode_text(clip.tokenize(text_list).to(self.hparams.device))
+        self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0].visual
         self.noisy_visual_encoder.train()
 
     def configure_optimizers(self):
@@ -111,7 +170,7 @@ class ModifiedCLIP(pl.LightningModule):
         exp_sim_mat = torch.exp(sim_mat/tau)
         mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).to(self.device)
         logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
-        
+
         loss = (torch.sum(torch.diag(logmat, diagonal=1)) + torch.sum(torch.diag(logmat, diagonal=-1)))/2
         return loss/bsz if reduction == 'mean' else loss
 
@@ -130,9 +189,8 @@ class ModifiedCLIP(pl.LightningModule):
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
         # cosine similarity as logits
-        logit_scale = 0.07
-        logits_per_image = logit_scale * image_features.type(torch.float16) @ text_features.type(torch.float16).t() # Funny thing, here the original code spells 'iamge' instead of image. Hidden copyright protection? :p
-        logits_per_text = logit_scale * text_features.type(torch.float16) @ image_features.type(torch.float16).t()
+        logits_per_image = self.logit_scale * image_features.type(torch.float16) @ text_features.type(torch.float16).t() # Funny thing, here the original code spells 'iamge' instead of image. Hidden copyright protection? :p
+        logits_per_text = self.logit_scale * text_features.type(torch.float16) @ image_features.type(torch.float16).t()
 
         # shape = [global_batch_size, global_batch_size]
         return logits_per_image, logits_per_text
@@ -141,66 +199,94 @@ class ModifiedCLIP(pl.LightningModule):
         image_clean, image_noisy = train_batch
         embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))
         embed_noisy = self.encode_noisy_image(image_noisy)
-        loss = self.contrastive_loss(embed_clean, embed_noisy)
-        # result = pl.TrainResult(loss)
-        if batch_idx % 1 == 0:
-            self.log('train_loss', loss)
-        return loss
-    
-    def validation_step(self, val_batch, batch_idx):
-        image_clean, image_noisy = val_batch
-        embed_clean = self.baseclip.encode_image(image_clean)
-        embed_noisy = self.encode_noisy_image(image_noisy)
-        loss = self.contrastive_loss(embed_clean, embed_noisy)
-        # result = pl.EvalResult(loss)
-        if batch_idx % 1 == 0:
-            self.log('val_loss', loss)
-        return loss
+        loss = self.criterion(embed_clean, embed_noisy)
 
-    def test_step(self, test_batch, batch_idx):
+        loss_dict = {"Train_Loss": loss}
+
+        output = {
+            'loss': loss,
+            'progress_bar': loss_dict,
+            'log': loss_dict
+        }
+
+        return output
+
+    def validation_step(self, test_batch, batch_idx):
         images_noisy, labels = test_batch
-        image_logits, _ = self.forward(images_noisy.to(self.device))
+        image_logits, _ = self.forward(images_noisy)
         preds = torch.argmax(image_logits.softmax(dim=-1), axis=1)
-        acc = FM.accuracy(preds, labels)
-        self.log('accuracy', acc)
-        return acc
 
-    # def fit(self, train_dataloader, valid_dataloader=None, epochs=5):
-    #     loss_fun = ContrastiveLoss(device=self.device)
-    #     optim = torch.optim.SGD(self.noisy_visual_encoder.parameters(), lr=1e-4, momentum=0.7)
-    #     for t in range(epochs):
-    #         self.noisy_visual_encoder.train()
-    #         for i, (image_clean, image_noisy) in enumerate(train_dataloader):
-    #             optim.zero_grad()
-    #             embed_clean = self.baseclip.encode_image(image_clean)
-    #             embed_noisy = self.encode_noisy_image(image_noisy.to(self.device))
-    #             loss = loss_fun(embed_clean.to(self.device), embed_noisy)
-    #             if(i % 20 == 0):
-    #                 print('Epoch {0:}, \tBatch {1:}\tLoss: {2:.5f}'.format(t+1, i+1, loss.item()))
-    #             loss.backward()
-    #             optim.step()
+        if self.hparams.dataset == "Imagenet-100":
+            labels = map_classes(labels, self.class_map)
 
-    #         if valid_dataloader:
-    #             self.noisy_visual_encoder.eval()
-    #             with torch.no_grad():
-    #                 for embed_clean, image_noisy in valid_dataloader:
-    #                     embed_noisy = self.encode_noisy_image(image_noisy)
-    #                     loss = loss_fun(embed_clean.to(self.device), embed_noisy)
+        if batch_idx == 0 and self.current_epoch < 20:
+            self.logger.experiment.add_image('Val_Sample', img_grid(x), self.current_epoch)
 
-    #     return None
+        image_logits, _ = self.forward(images_noisy)
 
-    # def score(self, test_dataloader, batches_per_epoch=100):
-        
-    #     self.noisy_visual_encoder.eval()
-    #     total = 0
-    #     corr = 0
-    #     with torch.no_grad():
-    #         for i, (images_noisy, labels) in tqdm(enumerate(test_dataloader)):
-    #             if i >= batches_per_epoch:
-    #                 break
-    #             image_logits, _ = self.forward(images_noisy.to(self.device))
-    #             preds = np.argmax(image_logits.softmax(dim=-1).cpu().numpy(), axis=1)
-    #             total += len(preds)
-    #             corr += np.sum(preds==np.array([label.item() for label in labels]))
+        # loss = self.criterion(logits, labels)
+        top_1 = top_k_accuracy(logits, labels, k=1)
+        top_5 = top_k_accuracy(logits, labels, k=5)
 
-    #     return corr/total
+        loss_dict = {
+            # "Val_Loss": loss,
+            "Top_1": top_1,
+            "Top_5": top_5
+        }
+
+        output = {
+            'Val_Results': loss_dict,
+            'log': loss_dict,
+            'progress_bar': loss_dict
+        }
+
+        return output
+
+    def validation_epoch_end(self, outputs):
+        val_loss_mean = torch.stack([x['Val_Loss']['Val_Loss'] for x in outputs]).mean()
+        top_1_mean = torch.stack([x['Val_Loss']['Top_1'] for x in outputs]).sum() / self.N_val
+        top_5_mean = torch.stack([x['Val_Loss']['Top_5'] for x in outputs]).sum() / self.N_val
+
+        loss_dict = {
+            'Val_loss': val_loss_mean,
+            'Top_1': top_1_mean,
+            'Top_5': top_5_mean
+        }
+
+        output = {
+            'Val_Loss': val_loss_mean,
+            'log': loss_dict,
+            'progress_bar': loss_dict
+        }
+
+        return output
+
+def run_noisy_clip():
+    parser = argparse.ArgumentParser(description="NoisyCLIP")
+
+    config = yaml_config_hook("./config/config_noisy_clip.yaml")
+    for k, v in config.items():
+        parser.add_argument(f"--{k}", default=v, type=type(v))
+
+    args = parser.parse_args()
+
+    seed_everything(args.seed)
+
+    dataset = ImageNetCLIPDataset(args)
+
+    model = NoisyCLIP(args)
+
+    trainer = Trainer.from_argparse_args(args)
+
+    logger = TensorBoardLogger(
+        save_dir= os.getcwd(),
+        version=args.experiment_name,
+        name='Logs'
+    )
+    trainer.logger = logger
+
+    trainer.fit(model, dataset)
+
+
+if __name__ == "__main__":
+    run_baseline()
