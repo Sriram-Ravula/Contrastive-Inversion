@@ -285,10 +285,12 @@ class NoisyCLIP(LightningModule):
 
         return output
 
-def run_noisy_clip(config_file):
+def run_noisy_clip():
     parser = argparse.ArgumentParser(description="NoisyCLIP")
 
-    config = yaml_config_hook(config_file)
+    parser.add_argument('--config_file')
+
+    config = yaml_config_hook(parser.parse_args().config_file)
     for k, v in config.items():
         parser.add_argument(f"--{k}", default=v, type=type(v))
 
@@ -313,4 +315,4 @@ def run_noisy_clip(config_file):
 
 
 if __name__ == "__main__":
-    run_noisy_clip(sys.argv[1])
+    run_noisy_clip()
