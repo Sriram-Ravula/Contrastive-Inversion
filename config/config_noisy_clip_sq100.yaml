@@ -3,7 +3,7 @@ seed: 1234
 experiment_name: "resnet50_noisyclip_squaremask_50"
 
 num_nodes: 1
-gpus: 1
+gpus: 4
 
 encoder: "resnet"
 baseclip_type: "RN50"
@@ -11,7 +11,7 @@ device: "cpu"
 loss: "contrastive"
 
 distortion: "squaremask"
-mask_length: 50
+mask_length: 100
 
 lr: 0.0001
 momentum: 0.7

@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import sys
+import os
 import argparse
 import numpy as np
 import torch
@@ -168,7 +170,7 @@ class NoisyCLIP(LightningModule):
         self.world_size = self.hparams.num_nodes * self.hparams.gpus
 
         if self.hparams.dataset == "Imagenet-100":
-            self.N_val = 50000 # Default ImageNet validation set.
+            self.N_val = 5000 # Default ImageNet validation set, only 100 classes.
             if self.hparams.mapping_and_text_file is None:
                 raise ValueError('No file from which to read mapping/text labels was specified.')
 
@@ -283,10 +285,10 @@ class NoisyCLIP(LightningModule):
 
         return output
 
-def run_noisy_clip():
+def run_noisy_clip(config_file):
     parser = argparse.ArgumentParser(description="NoisyCLIP")
 
-    config = yaml_config_hook("./config/config_noisy_clip.yaml")
+    config = yaml_config_hook(config_file)
     for k, v in config.items():
         parser.add_argument(f"--{k}", default=v, type=type(v))
 
@@ -311,4 +313,4 @@ def run_noisy_clip():
 
 
 if __name__ == "__main__":
-    run_noisy_clip()
+    run_noisy_clip(sys.argv[1])
