@@ -14,6 +14,7 @@ import copy
 import pickle
 from tqdm import tqdm
 
+import torch
 import torchvision
 
 from utils import *
@@ -30,9 +31,10 @@ class ContrastiveLoss(torch.nn.modules.loss._WeightedLoss):
     similarity between clean and noisy versions of the same image, while minimizing
     similarity of clean and noisy versions of different images.
     """
-    def __init__(self, weight: typing.Optional[Tensor] = None, size_average=None, reduce=None, reduction: str = 'mean', tau=1) -> None:
+    def __init__(self, weight: typing.Optional[Tensor] = None, size_average=None, reduce=None, reduction: str = 'mean', tau=1, device='cpu') -> None:
         super(ContrastiveLoss, self).__init__(weight, size_average, reduce, reduction)
         self.tau = tau
+        self.device = device
 
     def forward(self, input1: Tensor, input2: Tensor) -> Tensor:
         bsz = input1.shape[0]
@@ -180,17 +182,15 @@ class NoisyCLIP(LightningModule):
         else:
             raise NotImplementedError('Handling of the dataset not implemented yet.')
 
-        if self.hparams.loss == 'contrastive':
-            self.criterion = ContrastiveLoss(tau=self.hparams.loss_tau)
-        else:
-            raise NotImplementedError('Loss function not implemented yet.')
-
+        #self.criterion = None
+        self.criterion = ContrastiveLoss(tau=self.hparams.loss_tau, device=self.hparams.device)
         self.logit_scale = self.hparams.logit_scale
         self.baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0]
         self.baseclip.eval()
         self.text_embeddings = self.baseclip.encode_text(clip.tokenize(text_list).to(self.hparams.device))
-        self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0].visual
+        self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.device, jit=False)[0].visual
         self.noisy_visual_encoder.train()
+
 
     def configure_optimizers(self):
         optim = torch.optim.SGD(self.noisy_visual_encoder.parameters(), lr=self.hparams.lr, momentum=self.hparams.momentum)
@@ -220,6 +220,18 @@ class NoisyCLIP(LightningModule):
         return logits_per_image, logits_per_text
 
     def training_step(self, train_batch, batch_idx):
+        #if self.criterion is None:
+        #    if self.hparams.loss == 'contrastive':
+        #        self.criterion = ContrastiveLoss(self.hparams.tau, self.device)
+        #        self.baseclip = clip.load(self.hparams.baseclip_type, self.device, jit=False)[0]
+        #        self.baseclip.eval()
+        #        self.text_embeddings = self.baseclip.encode_text(clip.tokenize(text_list).to(self.device))
+        #        self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.device, jit=False)[0].visual
+        #        self.noisy_visual_encoder.train()
+        #    else:
+        #        raise NotImplementedError('Loss function not implemented yet.')
+
+
         image_clean, image_noisy = train_batch
         embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))
         embed_noisy = self.encode_noisy_image(image_noisy)
@@ -236,6 +248,18 @@ class NoisyCLIP(LightningModule):
         return output
 
     def validation_step(self, test_batch, batch_idx):
+        #if self.criterion is None:
+        #    if self.hparams.loss == 'contrastive':
+        #        self.criterion = ContrastiveLoss(self.hparams.tau, self.device)
+        #        self.baseclip = clip.load(self.hparams.baseclip_type, self.device, jit=False)[0]
+        #        self.baseclip.eval()
+        #        self.text_embeddings = self.baseclip.encode_text(clip.tokenize(text_list).to(self.device))
+        #        self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.device, jit=False)[0].visual
+        #        self.noisy_visual_encoder.train()
+        #    else:
+        #        raise NotImplementedError('Loss function not implemented yet.')
+
+
         images_noisy, labels = test_batch
         image_logits, _ = self.forward(images_noisy)
         preds = torch.argmax(image_logits.softmax(dim=-1), axis=1)
@@ -244,13 +268,13 @@ class NoisyCLIP(LightningModule):
             labels = map_classes(labels, self.class_map)
 
         if batch_idx == 0 and self.current_epoch < 20:
-            self.logger.experiment.add_image('Val_Sample', img_grid(x), self.current_epoch)
+            self.logger.experiment.add_image('Val_Sample', img_grid(images_noisy), self.current_epoch)
 
         image_logits, _ = self.forward(images_noisy)
 
-        loss = nn.CrossEntropyLoss()(logits, labels)
-        top_1 = top_k_accuracy(logits, labels, k=1)
-        top_5 = top_k_accuracy(logits, labels, k=5)
+        loss = torch.nn.CrossEntropyLoss()(image_logits, labels)
+        top_1 = top_k_accuracy(image_logits, labels, k=1)
+        top_5 = top_k_accuracy(image_logits, labels, k=5)
 
         loss_dict = {
             "Val_Loss": loss,
@@ -267,9 +291,9 @@ class NoisyCLIP(LightningModule):
         return output
 
     def validation_epoch_end(self, outputs):
-        val_loss_mean = torch.stack([x['Val_Loss']['Val_Loss'] for x in outputs]).mean()
-        top_1_mean = torch.stack([x['Val_Loss']['Top_1'] for x in outputs]).sum() / self.N_val
-        top_5_mean = torch.stack([x['Val_Loss']['Top_5'] for x in outputs]).sum() / self.N_val
+        val_loss_mean = torch.stack([x['Val_Results']['Val_Loss'] for x in outputs]).mean()
+        top_1_mean = torch.stack([x['Val_Results']['Top_1'] for x in outputs]).sum() / self.N_val
+        top_5_mean = torch.stack([x['Val_Results']['Top_5'] for x in outputs]).sum() / self.N_val
 
         loss_dict = {
             'Val_loss': val_loss_mean,
@@ -299,7 +323,7 @@ def run_noisy_clip():
     seed_everything(args.seed)
 
     dataset = ImageNetCLIPDataset(args)
-
+    dataset.setup()
     model = NoisyCLIP(args)
 
     trainer = Trainer.from_argparse_args(args)

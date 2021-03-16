@@ -230,7 +230,13 @@ def get_subset(dataset, filename, return_class_labels=False):
     if not return_class_labels:
         return ds_subset, og_to_new_dict #return the subset of the original dataset and the {old: new} class label dict
     else:
-        text_labels = [dataset.wnid_to_classes[wnid] for wnid in subset_wnids]
+        idxs = [dataset.wnid_to_idx[wnid] for wnid in subset_wnids]
+        class_list = list(dataset.class_to_idx.keys())
+        idx_list = list(dataset.class_to_idx.values())
+        text_labels = []
+        for idx in idxs:
+            pos = idx_list.index(idx)
+            text_labels.append(class_list[pos])
         return ds_subset, og_to_new_dict, text_labels
 
 def map_classes(og_classes, remap):

@@ -22,7 +22,7 @@ dataset: "Imagenet-100"
 num_classes: 100
 subset_file_name: "imagenet100.txt"
 
-dataset_dir: "../data/imagenet/"
+dataset_dir: "/work/08002/gsmyrnis/maverick2/clip_experiments/data/imagenet/"
 mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
 save_mapping_and_text: True
 

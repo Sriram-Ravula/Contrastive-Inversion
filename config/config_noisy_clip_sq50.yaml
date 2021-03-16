@@ -3,11 +3,11 @@ seed: 1234
 experiment_name: "resnet50_noisyclip_squaremask_50"
 
 num_nodes: 1
-gpus: 4
+gpus: 1
 
 encoder: "resnet"
 baseclip_type: "RN50"
-device: "cpu"
+device: "cuda"
 loss: "contrastive"
 
 distortion: "squaremask"
@@ -22,15 +22,15 @@ dataset: "Imagenet-100"
 num_classes: 100
 subset_file_name: "imagenet100.txt"
 
-dataset_dir: "../data/imagenet/"
+dataset_dir: "/work/08002/gsmyrnis/maverick2/clip_experiments/data/imagenet/"
 mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
 save_mapping_and_text: True
 
-batch_size: 100
+batch_size: 64
 
 workers: 12
 
-distributed_backend: "ddp"
+distributed_backend: "dp"
 
 #training
 max_epochs: 1
@@ -38,4 +38,4 @@ log_save_interval: 5 #set this to be equal to num_epochs if row_log_interval is 
 row_log_interval: 1
 
 #validation
-check_val_every_n_epoch: 5
+check_val_every_n_epoch: 1
