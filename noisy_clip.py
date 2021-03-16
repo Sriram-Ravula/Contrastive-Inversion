@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import argparse
 import numpy as np
 import torch
 from torch import Tensor
@@ -310,4 +311,4 @@ def run_noisy_clip():
 
 
 if __name__ == "__main__":
-    run_baseline()
+    run_noisy_clip()
