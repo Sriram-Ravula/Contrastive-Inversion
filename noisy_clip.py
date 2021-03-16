@@ -190,7 +190,7 @@ class NoisyCLIP(LightningModule):
         self.noisy_visual_encoder.train()
 
     def configure_optimizers(self):
-        optim = torch.optim.SGD(self.noisy_visual_encoder.parameters(), lr=1e-4, momentum=0.7)
+        optim = torch.optim.SGD(self.noisy_visual_encoder.parameters(), lr=self.hparams.lr, momentum=self.hparams.momentum)
         return optim
 
     def encode_noisy_image(self, image):
