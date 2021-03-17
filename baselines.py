@@ -13,7 +13,7 @@ import clip
 
 class Baseline(LightningModule):
     def __init__(self, args):
-        super().__init__()
+        super(Baseline, self).__init__()
 
         self.hparams = args
         self.world_size = self.hparams.num_nodes * self.hparams.gpus
@@ -33,6 +33,7 @@ class Baseline(LightningModule):
 
             #Extract the visual encoder from the pre-trained CLIP
             self.baseclip = clip.load(clip_type, device='cpu', jit=False)[0].visual
+            self.baseclip.train()
 
             if clip_type == 'ViT-B/32':
                 self.output = nn.Linear(512, self.hparams.num_classes)
@@ -44,7 +45,7 @@ class Baseline(LightningModule):
     def forward(self, x):
         if self.hparams.encoder == 'clip':
             n = x.size(0)
-            x = self.baseclip(x.type(torch.float16))
+            x = self.baseclip(x)
 
             return self.output(x.view(n, -1).float())
 
@@ -53,7 +54,8 @@ class Baseline(LightningModule):
     
     def configure_optimizers(self):
         if self.hparams.encoder == 'clip':
-            opt = torch.optim.Adam(list(self.baseclip.parameters()) + list(self.output.parameters()), lr = self.hparams.lr)
+            #opt = torch.optim.Adam(list(self.baseclip.parameters()) + list(self.output.parameters()), lr = self.hparams.lr)
+            opt = torch.optim.SGD(list(self.baseclip.parameters()) + list(self.output.parameters()), lr = self.hparams.lr, momentum=0.7)
 
         elif self.hparams.encoder == 'resnet':
             opt = torch.optim.Adam(self.encoder.parameters(), lr = self.hparams.lr)
@@ -203,6 +205,7 @@ def run_baseline():
         name='Logs'
     )
     trainer.logger = logger
+    trainer.num_sanity_val_steps=-1 #Run an entire validation epoch before fine-tuning
 
     trainer.fit(model)
 
