@@ -12,7 +12,7 @@ subset_file_name: "imagenet100.txt"
 
 distortion: "squaremask" #randommask or squaremask
 percent_missing: None #only for randommask
-mask_length: 100 #Only for squaremask
+length: 100 #Only for squaremask
 
 #distributed training
 num_nodes: 1
@@ -33,6 +33,7 @@ batch_size: 100
 #loggind
 log_save_interval: 10 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1  
+log_dir: "/work/04703/sravula/maverick2/Logs" #directory to log results to
 
 #validation
 check_val_every_n_epoch: 5
