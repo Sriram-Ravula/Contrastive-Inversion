@@ -103,6 +103,34 @@ class SquareMask(object):
 
             return image*mask
 
+class GaussianNoise(object):
+    """
+    Torchvision transform to add random Gaussian noise to an input image.
+
+    Arguments:
+        std - the standard deviation of the random noise to add to the image.
+        fixed - whether or not the noise we are adding is fixed for all images
+    """
+    def __init__(self, std, fixed=False):
+        assert isinstance(std, float)
+
+        self.std = std
+        self.fixed = fixed
+        self.noise = None
+    
+    def __call__(self, image):
+        c, h, w = image.shape[-3:]
+
+        if self.fixed and self.noise is not None:
+            return image + self.noise
+        
+        noise = torch.randn((c, h, w)) * self.std
+
+        if self.fixed:
+            self.noise = noise
+        
+        return image + noise
+
 class ImageNetBaseTransform:
     """
     Torchvision composition of transforms equivalent to the one required for CLIP clean images.
@@ -147,6 +175,10 @@ class ImageNetDistortTrain:
             distortion = SquareMask(length=args.length, offset="center", fixed = True)
         elif args.distortion == "randommask":
             distortion = RandomMask(percent_missing=args.percent_missing, fixed = True)
+        elif args.distortion == "gaussiannoise":
+            distortion = GaussianNoise(std=args.std, fixed=True)
+        elif args.distortion == "gaussianblur":
+            distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
         
         self.transform = transforms.Compose([
             transforms.RandomResizedCrop(224),
@@ -178,6 +210,10 @@ class ImageNetDistortVal:
             distortion = SquareMask(length=args.length, offset="center", fixed = True)
         elif args.distortion == "randommask":
             distortion = RandomMask(percent_missing=args.percent_missing, fixed = True)
+        elif args.distortion == "gaussiannoise":
+            distortion = GaussianNoise(std=args.std, fixed=True)
+        elif args.distortion == "gaussianblur":
+            distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
         
         self.transform = transforms.Compose([
             transforms.Resize(256),
