@@ -1,31 +1,37 @@
+#seed
 seed: 1234
 
-experiment_name: "resnet50_baseline_500_lowerlr"
+#Experiment Stuff
+experiment_name: "resnet100_baseline_500"
 
-num_nodes: 1
-gpus: 4
-
-encoder: "resnet"
-
-pretrained: True
-
-lr: 0.0002
-
+#data
+dataset_dir: "../Datasets/ILSVRC/Data/CLS-LOC/"
 dataset: "Imagenet-100"
 num_classes: 100
 subset_file_name: "imagenet100.txt"
 
-dataset_dir: "../Datasets/ILSVRC/Data/CLS-LOC/"
+distortion: "squaremask" #randommask or squaremask
+percent_missing: None #only for randommask
+mask_length: 100 #Only for squaremask
 
-batch_size: 100
-
+#distributed training
+num_nodes: 1
+gpus: 4
 workers: 12
-
 distributed_backend: "ddp"
+
+#model
+encoder: "resnet" #'clip' or 'resnet'
+clip_model: None #'ViT-B/32' or 'RN50' , only matters if encoder: "clip"
+pretrained: True
 
 #training
 max_epochs: 500
-log_save_interval: 5 #set this to be equal to num_epochs if row_log_interval is 1
+lr: 0.001
+batch_size: 100
+
+#loggind
+log_save_interval: 10 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1  
 
 #validation
