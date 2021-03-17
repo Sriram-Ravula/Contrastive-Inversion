@@ -8,8 +8,8 @@ import torch
 from torch import Tensor
 import typing
 import torch.nn.functional as F
-import model_simple as model
-import clip_simple as clip
+import model
+import clip
 import copy
 import pickle
 from tqdm import tqdm
@@ -178,18 +178,36 @@ class NoisyCLIP(LightningModule):
 
             og_to_new_dict, text_labels = pickle.load(open(self.hparams.mapping_and_text_file, 'rb'))
             self.class_map = og_to_new_dict
-            text_list = ['A photo of '+label.strip().replace('_',' ') for label in text_labels]
+            self.text_list = ['A photo of '+label.strip().replace('_',' ') for label in text_labels]
         else:
             raise NotImplementedError('Handling of the dataset not implemented yet.')
 
         #self.criterion = None
-        self.criterion = ContrastiveLoss(tau=self.hparams.loss_tau, device=self.hparams.device)
+        #self.criterion = ContrastiveLoss(tau=self.hparams.loss_tau, device=self.hparams.device)
         self.logit_scale = self.hparams.logit_scale
         self.baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0]
         self.baseclip.eval()
-        self.text_embeddings = self.baseclip.encode_text(clip.tokenize(text_list).to(self.hparams.device))
-        self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.device, jit=False)[0].visual
+        self.baseclip.requires_grad_(False)
+        # self.text_embeddings = self.baseclip.encode_text(clip.tokenize(text_list).to(self.hparams.device))
+        self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0].visual
         self.noisy_visual_encoder.train()
+
+    def criterion(self, input1, input2):
+        bsz = input1.shape[0]
+
+        # Create similarity matrix between embeddings.
+        full_tensor = torch.cat([input1.unsqueeze(1),input2.unsqueeze(1)], dim=1).view(2*bsz, 1, -1)
+        tensor1 = full_tensor.expand(2*bsz,2*bsz,-1)
+        tensor2 = full_tensor.permute(1,0,2).expand(2*bsz,2*bsz,-1)
+        sim_mat = torch.nn.CosineSimilarity(dim=-1)(tensor1,tensor2)
+
+        # Calculate logits used for the contrastive loss.
+        exp_sim_mat = torch.exp(sim_mat/self.hparams.loss_tau)
+        mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).to(self.device)
+        logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
+
+        loss = (torch.sum(torch.diag(logmat, diagonal=1)) + torch.sum(torch.diag(logmat, diagonal=-1)))/2
+        return loss/bsz
 
 
     def configure_optimizers(self):
@@ -206,7 +224,7 @@ class NoisyCLIP(LightningModule):
         """
 
         image_features = self.encode_noisy_image(image)
-        text_features = self.text_embeddings
+        text_features = self.baseclip.encode_text(clip.tokenize(self.text_list).to(self.device))
 
         # normalized features
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
@@ -230,8 +248,7 @@ class NoisyCLIP(LightningModule):
         #        self.noisy_visual_encoder.train()
         #    else:
         #        raise NotImplementedError('Loss function not implemented yet.')
-
-
+        
         image_clean, image_noisy = train_batch
         embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))
         embed_noisy = self.encode_noisy_image(image_noisy)
