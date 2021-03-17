@@ -27,6 +27,8 @@ from torchvision.datasets import CIFAR10
 
 class ContrastiveLoss(torch.nn.modules.loss._WeightedLoss):
     """
+    DEPRECATED: moved inside the NoisyCLIP class.
+
     Contrastive loss within a batch. The loss calculated tries to maximize
     similarity between clean and noisy versions of the same image, while minimizing
     similarity of clean and noisy versions of different images.
@@ -122,12 +124,8 @@ class ImageNetCLIPDataset(LightningDataModule):
         # self.noise_transform = self.hparams.noise_transform
         self.dataset_dir = self.hparams.dataset_dir
         self.batch_size = self.hparams.batch_size
-        if self.hparams.distortion == "squaremask":
-            self.train_set_transform = ImageNetSquareMask(mask_length = self.hparams.mask_length)
-            self.val_set_transform = ImageNetSquareMaskVal(mask_length = self.hparams.mask_length)
-        else:
-            raise NotImplementedError('Noisy trasnformation not implemented yet.')
-
+        self.train_set_transform = ImageNetDistortTrain(self.hparams)
+        self.val_set_transform = ImageNetDistortVal(self.hparams)
 
     def setup(self, stage=None):
         train_data = torchvision.datasets.ImageNet(
@@ -147,7 +145,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         train_data, og_to_new_dict, text_labels = get_subset(train_data, filename=filename, return_class_labels=True)
         self.val_data, _ = get_subset(val_data, filename=filename)
 
-        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform(), transform_noisy=self.train_set_transform)
+        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform(self.hparams), transform_noisy=self.train_set_transform)
 
         # Save mapping/labels to be reused.
         if self.hparams.save_mapping_and_text:
@@ -212,7 +210,8 @@ class NoisyCLIP(LightningModule):
 
     def configure_optimizers(self):
         optim = torch.optim.SGD(self.noisy_visual_encoder.parameters(), lr=self.hparams.lr, momentum=self.hparams.momentum)
-        return optim
+        sched = torch.optim.lr_scheduler.LambdaLR(optim, lambda epoch: 1/(epoch+1))
+        return [optim], [sched]
 
     def encode_noisy_image(self, image):
         return self.noisy_visual_encoder(image.type(torch.float16))
@@ -248,7 +247,7 @@ class NoisyCLIP(LightningModule):
         #        self.noisy_visual_encoder.train()
         #    else:
         #        raise NotImplementedError('Loss function not implemented yet.')
-        
+
         image_clean, image_noisy = train_batch
         embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))
         embed_noisy = self.encode_noisy_image(image_noisy)

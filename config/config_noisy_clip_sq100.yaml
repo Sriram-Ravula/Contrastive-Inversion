@@ -5,7 +5,7 @@ experiment_name: "resnet50_noisyclip_squaremask_50"
 num_nodes: 1
 gpus: 4
 
-encoder: "resnet"
+encoder: "clip"
 baseclip_type: "RN50"
 device: "cpu"
 loss: "contrastive"
@@ -24,9 +24,9 @@ subset_file_name: "imagenet100.txt"
 
 dataset_dir: "/work/08002/gsmyrnis/maverick2/clip_experiments/data/imagenet/"
 mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
-save_mapping_and_text: True
+save_mapping_and_text: False
 
-batch_size: 100
+batch_size: 128
 
 workers: 12
 
