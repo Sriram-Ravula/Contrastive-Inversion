@@ -10,7 +10,7 @@ from torch.utils.data.dataset import Subset
 class RandomMask(object):
     """
     Custom Torchvision transform meant to be used on image data with dimension (N, C, H, W).
-    Mask an image with a random mask of missing pixels (salt and pepper noise)
+    Mask an image with a random mask of missing pixels (blacked out - values set to 0).
 
     Args:
         percent_missing: percent of the pixels to mask
@@ -69,7 +69,6 @@ class SquareMask(object):
         if self.fixed and self.mask is not None:
             return image*self.mask
 
-
         if self.offset == "random":
             #The random offsets define the center of the square region
             h_offset = np.random.choice(np.arange(self.length//2, h-(self.length//2)+1))
@@ -107,11 +106,17 @@ class SquareMask(object):
 class ImageNetBaseTransform:
     """
     Torchvision composition of transforms equivalent to the one required for CLIP clean images.
+    Takes a set of arguments and alters the normalization constants depending on the model being used.
     """
-    def __init__(self):
-        normalize = transforms.Normalize(
-            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        )
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
         self.transform = transforms.Compose([
             transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
@@ -123,38 +128,62 @@ class ImageNetBaseTransform:
         return self.transform(x)
 
 
-class ImageNetSquareMask:
+class ImageNetDistortTrain:
     """
-    Torchvision composition of transforms to produce ImageNet images with the center square-masked
+    Torchvision composition of transforms to produce ImageNet images with a distortion.
+    For training, this class will apply a random crop and random horizontal flip as well.
     """
-    def __init__(self, mask_length = 50):
-        normalize = transforms.Normalize(
-            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        )
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
+            
+        if args.distortion == "squaremask":
+            distortion = SquareMask(length=args.length, offset="center", fixed = True)
+        elif args.distortion == "randommask":
+            distortion = RandomMask(percent_missing=args.percent_missing, fixed = True)
+        
         self.transform = transforms.Compose([
             transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            SquareMask(length=mask_length, offset="center"),
+            distortion,
             normalize
         ])
 
     def __call__(self, x):
         return self.transform(x)
 
-class ImageNetSquareMaskVal:
+class ImageNetDistortVal:
     """
-    Torchvision composition of transforms to produce ImageNet images with the center square-masked
+    Torchvision composition of transforms to produce ImageNet images with a distortion.
+    For validation, this class will always crop from the center of the image and NOT apply a random horizontal flip.
     """
-    def __init__(self, mask_length = 50):
-        normalize = transforms.Normalize(
-            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        )
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
+            
+        if args.distortion == "squaremask":
+            distortion = SquareMask(length=args.length, offset="center", fixed = True)
+        elif args.distortion == "randommask":
+            distortion = RandomMask(percent_missing=args.percent_missing, fixed = True)
+        
         self.transform = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
-            SquareMask(length=mask_length, offset="center"),
+            distortion,
             normalize
         ])
 
@@ -162,6 +191,15 @@ class ImageNetSquareMaskVal:
         return self.transform(x)
 
 def img_grid(data):
+    """
+    Creates an 8x8 grid out of given batch of images.
+    
+    Arguments:
+    data - an [N, 3, H, W] tensor of images, where N >= 64. Does not have to be normalized to [0, 1] or [-1, 1]
+    
+    Returns:
+    grid - an 8x8 grid of images
+    """
     data = data.cpu()[0:64]
 
     grid = torchvision.utils.make_grid(data, nrow=8, normalize=True)
@@ -170,8 +208,13 @@ def img_grid(data):
 
 def yaml_config_hook(config_file):
     """
-    Custom YAML config loader, which can include other yaml files (I like using config files
-    insteaad of using argparser)
+    Custom YAML config loader, which can include other yaml files.
+    
+    Arguments:
+    config_file - a .yaml file with a dictionary of configuration parameters
+    
+    Returns:
+    cfg - a parseable dictionary of configuration options
     """
 
     # load yaml files in the nested 'defaults' section, which include defaults for experiments
@@ -190,7 +233,17 @@ def yaml_config_hook(config_file):
     return cfg
 
 def top_k_accuracy(input, targs, k=1):
-    "Computes the Top-k accuracy (target is in the top k predictions)."
+    """
+    Computes the Top-k accuracy (target is in the top k predictions).
+    
+    Arguments:
+    input - an [N, num_classes] tensor with a probability distribution over classes at each index i=1:N
+    targs - an [N] tensor with ground truth class label for each sample i=1:N
+    k - the k for the top-k values to take from input
+    
+    Returns:
+    top_k_accuracy - the top-k accuracy of inputs relative to targs
+    """
     input = input.topk(k=k, dim=-1)[1]
     targs = targs.unsqueeze(dim=-1).expand_as(input)
 
@@ -247,6 +300,9 @@ def map_classes(og_classes, remap):
     Arguments:
     og_classes - the tensor of original batch labels
     remap - the dictionary to remap classes {old_label: new_label}
+    
+    Returns:
+    new_classes - a tensor of the same type as og_classes, with the new classes for the data batch 
     """
 
     x = og_classes.cpu().numpy()
