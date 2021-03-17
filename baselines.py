@@ -200,9 +200,9 @@ def run_baseline():
     trainer = Trainer.from_argparse_args(args)
 
     logger = TensorBoardLogger(
-        save_dir= os.getcwd(),
+        save_dir= args.log_dir,
         version=args.experiment_name,
-        name='Logs'
+        name='Contrastive-Inversion'
     )
     trainer.logger = logger
     trainer.num_sanity_val_steps=-1 #Run an entire validation epoch before fine-tuning
