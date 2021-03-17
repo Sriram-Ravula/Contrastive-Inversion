@@ -3,11 +3,11 @@ seed: 1234
 experiment_name: "resnet50_noisyclip_squaremask_50"
 
 num_nodes: 1
-gpus: 1
+gpus: 2
 
 encoder: "resnet"
 baseclip_type: "RN50"
-device: "cuda"
+# device: "cuda"
 loss: "contrastive"
 
 distortion: "squaremask"
@@ -30,7 +30,7 @@ batch_size: 64
 
 workers: 12
 
-distributed_backend: "dp"
+distributed_backend: "ddp"
 
 #training
 max_epochs: 1

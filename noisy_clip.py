@@ -8,8 +8,8 @@ import torch
 from torch import Tensor
 import typing
 import torch.nn.functional as F
-import model
-import clip
+import model_simple as model
+import clip_simple as clip
 import copy
 import pickle
 from tqdm import tqdm
