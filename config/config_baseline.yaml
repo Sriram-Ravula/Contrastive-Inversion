@@ -16,12 +16,12 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "TEST_Random90"
+experiment_name: "TEST_Square100"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
-distortion: "randommask" #randommask or squaremask
-percent_missing: 0.9 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
-#length: 100 #Only for squaremask
+distortion: "squaremask" #randommask or squaremask
+#percent_missing: 0.9 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
+length: 100 #Only for squaremask
 #std: None #only for Gaussian noise
 #kernel_size: None #Only for Gaussian Blur
 #sigma: None #Only for Gaussian Blur
@@ -32,14 +32,13 @@ clip_model: None #'ViT-B/32' or 'RN50' , only matters if encoder: "clip"
 pretrained: True
 
 #training
-max_epochs: 2
+max_epochs: 3
 lr: 0.001
 batch_size: 100 #150 for clip resnet, 300 for clip Vit, 100 for resnet
 
 #logging
 log_save_interval: 1 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1  
-#log_dir: "/work/04703/sravula/maverick2/Logs" #directory to log results to
 
 #validation
 check_val_every_n_epoch: 1 

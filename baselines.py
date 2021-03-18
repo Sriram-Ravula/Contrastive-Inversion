@@ -11,6 +11,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 import torchvision.models as models
 from utils import img_grid, yaml_config_hook, top_k_accuracy, get_subset, map_classes, ImageNetDistortTrain, ImageNetDistortVal
 import clip
+import numpy as np
 
 class Baseline(LightningModule):
     def __init__(self, args):
@@ -73,15 +74,17 @@ class Baseline(LightningModule):
 
         loss = self.criterion(logits, y)
 
-        loss_dict = {"Train_Loss": loss}
+        # loss_dict = {"Train_Loss": loss}
 
-        output = {
-            'loss': loss,
-            'progress_bar': loss_dict,
-            'log': loss_dict
-        }
+        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True, logger=True)
 
-        return output
+        # output = {
+        #     'loss': loss,
+        #     'progress_bar': loss_dict,
+        #     'log': loss_dict
+        # }
+
+        return loss
 
     def train_dataloader(self):
         if self.hparams.dataset == "Imagenet-100":
@@ -97,7 +100,6 @@ class Baseline(LightningModule):
 
             if self.class_map == None:
                 self.class_map = og_to_new_dict
-                #print("\n\nSET CLASS MAP\n\n") #TODO REMOVE THIS DEBUG
 
         train_dataloader = DataLoader(train_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
                                         pin_memory=True, shuffle=True)
@@ -118,7 +120,6 @@ class Baseline(LightningModule):
 
             if self.class_map == None:
                 self.class_map = og_to_new_dict
-                #print("\n\nSET CLASS MAP\n\n") #TODO REMOVE THIS DEBUG
 
         self.N_val = len(val_dataset)
 
@@ -126,6 +127,28 @@ class Baseline(LightningModule):
                                         pin_memory=True, shuffle=False)
 
         return val_dataloader
+
+    def test_dataloader(self):
+        if self.hparams.dataset == "Imagenet-100":
+            test_dataset = torchvision.datasets.ImageNet(
+                root=self.hparams.dataset_dir,
+                split="val",
+                transform=ImageNetDistortVal(self.hparams)
+            )
+
+            filename = self.hparams.dataset_dir + self.hparams.subset_file_name
+
+            test_dataset, og_to_new_dict = get_subset(test_dataset, filename=filename)
+
+            if self.class_map == None:
+                self.class_map = og_to_new_dict
+
+        self.N_test = len(test_dataset)
+
+        test_dataloader = DataLoader(test_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
+                                        pin_memory=True, shuffle=False)
+
+        return test_dataloader
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
@@ -144,39 +167,76 @@ class Baseline(LightningModule):
 
         loss_dict = {
             "val_loss": loss,
-            "Top_1": top_1,
-            "Top_5": top_5
+            "top_1": top_1,
+            "top_5": top_5
         }
 
-        output = {
-            'val_loss': loss_dict,
-            'log': loss_dict,
-            'progress_bar': loss_dict 
-        }
+        # output = {
+        #     'val_loss': loss_dict,
+        #     'log': loss_dict,
+        #     'progress_bar': loss_dict 
+        # }
 
-        return output
+        return loss_dict
     
     def validation_epoch_end(self, outputs):
-        val_loss_mean = torch.stack([x['val_loss']['val_loss'] for x in outputs]).sum() / self.N_val
-        top_1_mean = torch.stack([x['val_loss']['Top_1'] for x in outputs]).sum() / self.N_val
-        top_5_mean = torch.stack([x['val_loss']['Top_5'] for x in outputs]).sum() / self.N_val
+        # val_loss_mean = torch.stack([x['val_loss']['val_loss'] for x in outputs]).sum() / self.N_val
+        # top_1_mean = torch.stack([x['val_loss']['Top_1'] for x in outputs]).sum() / self.N_val
+        # top_5_mean = torch.stack([x['val_loss']['Top_5'] for x in outputs]).sum() / self.N_val
+
+        val_loss_mean = torch.stack([x['val_loss'] for x in outputs]).sum() / self.N_val
+        top_1_mean = torch.stack([x['top_1'] for x in outputs]).sum() / self.N_val
+        top_5_mean = torch.stack([x['top_5'] for x in outputs]).sum() / self.N_val
+
+        # loss_dict = {
+        #     'val_loss': val_loss_mean,
+        #     'Top_1': top_1_mean,
+        #     'Top_5': top_5_mean
+        # }
+
+        self.log("val_loss", val_loss_mean, prog_bar=True, on_step=True, on_epoch=True, logger=True)
+        self.log("top_1", top_1_mean, prog_bar=True, on_step=True, on_epoch=True, logger=True)
+        self.log("top_5", top_5_mean, prog_bar=True, on_step=True, on_epoch=True, logger=True)
+
+        # output = {
+        #     'val_loss': val_loss_mean,
+        #     'log': loss_dict,
+        #     'progress_bar': loss_dict
+        # }
+
+        # return output
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        
+        if self.hparams.dataset == "Imagenet-100":
+            y = map_classes(y, self.class_map)
+
+        logits = self.forward(x)
+
+        loss = self.criterion(logits, y)
+        top_1 = top_k_accuracy(logits, y, k=1)
+        top_5 = top_k_accuracy(logits, y, k=5)
 
         loss_dict = {
-            'val_loss': val_loss_mean,
-            'Top_1': top_1_mean,
-            'Top_5': top_5_mean
+            "test_loss": loss,
+            "test_top_1": top_1,
+            "test_top_5": top_5
         }
 
-        output = {
-            'val_loss': val_loss_mean,
-            'log': loss_dict,
-            'progress_bar': loss_dict
-        }
+        return loss_dict
+    
+    def test_epoch_end(self, outputs):
+        test_loss_mean = torch.stack([x['test_loss'] for x in outputs]).sum() / self.N_val
+        top_1_mean = torch.stack([x['test_top_1'] for x in outputs]).sum() / self.N_val
+        top_5_mean = torch.stack([x['test_top_5'] for x in outputs]).sum() / self.N_val
 
-        return output
+        self.log("test_loss", test_loss_mean, prog_bar=True, on_step=True, on_epoch=True, logger=True)
+        self.log("test_top_1", top_1_mean, prog_bar=True, on_step=True, on_epoch=True, logger=True)
+        self.log("test_top_5", top_5_mean, prog_bar=True, on_step=True, on_epoch=True, logger=True)
 
 def run_baseline():
-    parser = argparse.ArgumentParser(description="SimCLR")
+    parser = argparse.ArgumentParser(description="Contrastive-Inversion")
 
     config = yaml_config_hook("./config/config_baseline.yaml")
     for k, v in config.items():
@@ -197,20 +257,14 @@ def run_baseline():
     )
     trainer.logger = logger
 
-    # checkpoint_callback = ModelCheckpoint(
-    #     filepath=os.getcwd(),
-    #     save_best_only=True,
-    #     verbose=True,
-    #     monitor='val_loss',
-    #     mode='min',
-    #     prefix=''
-    # )
-    trainer.checkpoint_callback.monitor = "Top_5" #monitor the top_5 accuracy to check for saving
-    trainer.checkpoint_callback.mode = "max"  #save when the top_5 accuracy is maximized
+    trainer.checkpoint_callback.monitor = "top_5"
+    trainer.checkpoint_callback.mode = (np.greater, -np.Inf, 'max')
+    trainer.checkpoint_callback.monitor_op = (np.greater, -np.Inf, 'max')
+    trainer.checkpoint_callback.kth_value = (np.greater, -np.Inf, 'max')
 
-    trainer.num_sanity_val_steps=-1 #Run an entire validation epoch before fine-tuning
-
+    trainer.test(model) #run an entire validation epoch before starting 
     trainer.fit(model)
+    trainer.test() #run one final validation epoch at the end - no arguments means pick best save
 
 
 if __name__ == "__main__":
