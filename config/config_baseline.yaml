@@ -1,39 +1,45 @@
-#seed
+#seed - SAME BETWEEN RUNS
 seed: 1234
 
-#Experiment Stuff
-experiment_name: "resnet100_baseline_500"
-
-#data
+#data - SAME BETWEEN RUNS
 dataset_dir: "../Datasets/ILSVRC/Data/CLS-LOC/"
 dataset: "Imagenet-100"
 num_classes: 100
 subset_file_name: "imagenet100.txt"
 
-distortion: "squaremask" #randommask or squaremask
-percent_missing: None #only for randommask
-length: 100 #Only for squaremask
-
-#distributed training
+#distributed training - SAME BETWEEN RUNS
 num_nodes: 1
 gpus: 4
 workers: 12
 distributed_backend: "ddp"
 
-#model
+###############################################
+
+#Experiment Stuff - CHANGE BETWEEN RUNS
+experiment_name: "TEST_Random90"
+
+#Distortions and parameters - CHANGE BETWEEN RUNS
+distortion: "randommask" #randommask or squaremask
+percent_missing: 0.9 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
+#length: 100 #Only for squaremask
+#std: None #only for Gaussian noise
+#kernel_size: None #Only for Gaussian Blur
+#sigma: None #Only for Gaussian Blur
+
+#model - CHANGE BETWEEN RUNS
 encoder: "resnet" #'clip' or 'resnet'
 clip_model: None #'ViT-B/32' or 'RN50' , only matters if encoder: "clip"
 pretrained: True
 
 #training
-max_epochs: 500
+max_epochs: 2
 lr: 0.001
-batch_size: 100
+batch_size: 100 #150 for clip resnet, 300 for clip Vit, 100 for resnet
 
-#loggind
-log_save_interval: 10 #set this to be equal to num_epochs if row_log_interval is 1
+#logging
+log_save_interval: 1 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1  
-log_dir: "/work/04703/sravula/maverick2/Logs" #directory to log results to
+#log_dir: "/work/04703/sravula/maverick2/Logs" #directory to log results to
 
 #validation
-check_val_every_n_epoch: 5
+check_val_every_n_epoch: 1 

@@ -7,8 +7,9 @@ import os
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.callbacks import ModelCheckpoint
 import torchvision.models as models
-from utils import ImageNetSquareMask, ImageNetSquareMaskVal, img_grid, yaml_config_hook, top_k_accuracy, get_subset, map_classes, ImageNetRandomMask, ImageNetRandomMaskVal
+from utils import img_grid, yaml_config_hook, top_k_accuracy, get_subset, map_classes, ImageNetDistortTrain, ImageNetDistortVal
 import clip
 
 class Baseline(LightningModule):
@@ -84,15 +85,10 @@ class Baseline(LightningModule):
 
     def train_dataloader(self):
         if self.hparams.dataset == "Imagenet-100":
-            if self.hparams.distortion == "squaremask":
-                transform = ImageNetSquareMask(mask_length = self.hparams.mask_length)
-            elif self.hparams.distortion == "randommask":
-                transform = ImageNetRandomMask(percent_missing = self.hparams.percent_missing)
-            
             train_dataset = torchvision.datasets.ImageNet(
                 root=self.hparams.dataset_dir,
                 split="train",
-                transform=transform
+                transform=ImageNetDistortTrain(self.hparams)
             )
 
             filename = self.hparams.dataset_dir + self.hparams.subset_file_name
@@ -110,15 +106,10 @@ class Baseline(LightningModule):
 
     def val_dataloader(self):
         if self.hparams.dataset == "Imagenet-100":
-            if self.hparams.distortion == "squaremask":
-                transform = ImageNetSquareMaskVal(mask_length = self.hparams.mask_length)
-            elif self.hparams.distortion == "randommask":
-                transform = ImageNetRandomMaskVal(percent_missing = self.hparams.percent_missing)
-
             val_dataset = torchvision.datasets.ImageNet(
                 root=self.hparams.dataset_dir,
                 split="val",
-                transform=transform
+                transform=ImageNetDistortVal(self.hparams)
             )
 
             filename = self.hparams.dataset_dir + self.hparams.subset_file_name
@@ -152,13 +143,13 @@ class Baseline(LightningModule):
         top_5 = top_k_accuracy(logits, y, k=5)
 
         loss_dict = {
-            "Val_Loss": loss,
+            "val_loss": loss,
             "Top_1": top_1,
             "Top_5": top_5
         }
 
         output = {
-            'Val_Loss': loss_dict,
+            'val_loss': loss_dict,
             'log': loss_dict,
             'progress_bar': loss_dict 
         }
@@ -166,18 +157,18 @@ class Baseline(LightningModule):
         return output
     
     def validation_epoch_end(self, outputs):
-        val_loss_mean = torch.stack([x['Val_Loss']['Val_Loss'] for x in outputs]).mean()
-        top_1_mean = torch.stack([x['Val_Loss']['Top_1'] for x in outputs]).sum() / self.N_val
-        top_5_mean = torch.stack([x['Val_Loss']['Top_5'] for x in outputs]).sum() / self.N_val
+        val_loss_mean = torch.stack([x['val_loss']['val_loss'] for x in outputs]).sum() / self.N_val
+        top_1_mean = torch.stack([x['val_loss']['Top_1'] for x in outputs]).sum() / self.N_val
+        top_5_mean = torch.stack([x['val_loss']['Top_5'] for x in outputs]).sum() / self.N_val
 
         loss_dict = {
-            'Val_loss': val_loss_mean,
+            'val_loss': val_loss_mean,
             'Top_1': top_1_mean,
             'Top_5': top_5_mean
         }
 
         output = {
-            'Val_Loss': val_loss_mean,
+            'val_loss': val_loss_mean,
             'log': loss_dict,
             'progress_bar': loss_dict
         }
@@ -200,11 +191,23 @@ def run_baseline():
     trainer = Trainer.from_argparse_args(args)
 
     logger = TensorBoardLogger(
-        save_dir= args.log_dir,
+        save_dir= "../Logs",
         version=args.experiment_name,
         name='Contrastive-Inversion'
     )
     trainer.logger = logger
+
+    # checkpoint_callback = ModelCheckpoint(
+    #     filepath=os.getcwd(),
+    #     save_best_only=True,
+    #     verbose=True,
+    #     monitor='val_loss',
+    #     mode='min',
+    #     prefix=''
+    # )
+    trainer.checkpoint_callback.monitor = "Top_5" #monitor the top_5 accuracy to check for saving
+    trainer.checkpoint_callback.mode = "max"  #save when the top_5 accuracy is maximized
+
     trainer.num_sanity_val_steps=-1 #Run an entire validation epoch before fine-tuning
 
     trainer.fit(model)
