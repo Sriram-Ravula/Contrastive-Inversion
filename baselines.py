@@ -156,9 +156,6 @@ class Baseline(LightningModule):
         if self.hparams.dataset == "Imagenet-100":
             y = map_classes(y, self.class_map)
 
-        if batch_idx == 0 and self.current_epoch < 15:
-            self.logger.experiment.add_image('Val_Sample', img_grid(x), self.current_epoch)
-
         logits = self.forward(x)
 
         loss = self.criterion(logits, y)
@@ -211,7 +208,10 @@ class Baseline(LightningModule):
         
         if self.hparams.dataset == "Imagenet-100":
             y = map_classes(y, self.class_map)
-
+            
+        if batch_idx == 0:
+            self.logger.experiment.add_image('Test_Sample', img_grid(x), self.current_epoch)
+            
         logits = self.forward(x)
 
         loss = self.criterion(logits, y)
