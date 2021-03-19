@@ -29,7 +29,7 @@ class RandomMask(object):
         if self.fixed and self.mask is not None:
             return image*self.mask.view(h,w)
 
-        removed_secs = np.random.choice(h*w, int(h*w*self.percent_missing))
+        removed_secs = np.random.choice(h*w, int(h*w*self.percent_missing), replace=False)
         mask = torch.ones(h*w)
         mask[removed_secs] = 0
         if self.fixed:
