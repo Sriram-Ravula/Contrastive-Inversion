@@ -210,7 +210,7 @@ class Baseline(LightningModule):
 def run_baseline():
     parser = argparse.ArgumentParser(description="Contrastive-Inversion")
 
-    config = yaml_config_hook("./config/config_baseline.yaml")
+    config = yaml_config_hook("./config/config_baseline_sq100.yaml")
     for k, v in config.items():
         parser.add_argument(f"--{k}", default=v, type=type(v))
 
