@@ -64,28 +64,6 @@ class Baseline(LightningModule):
 
         return opt
 
-    def training_step(self, batch, batch_idx):
-        x, y = batch
-
-        if self.hparams.dataset == "Imagenet-100":
-            y = map_classes(y, self.class_map)
-
-        logits = self.forward(x)
-
-        loss = self.criterion(logits, y)
-
-        # loss_dict = {"Train_Loss": loss}
-
-        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True, logger=True)
-
-        # output = {
-        #     'loss': loss,
-        #     'progress_bar': loss_dict,
-        #     'log': loss_dict
-        # }
-
-        return loss
-
     def train_dataloader(self):
         if self.hparams.dataset == "Imagenet-100":
             train_dataset = torchvision.datasets.ImageNet(
@@ -149,6 +127,23 @@ class Baseline(LightningModule):
                                         pin_memory=True, shuffle=False)
 
         return test_dataloader
+    
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+
+        if self.hparams.dataset == "Imagenet-100":
+            y = map_classes(y, self.class_map)
+
+        if batch_idx == 0 and self.current_epoch == 0:
+            self.logger.experiment.add_image('Train_Sample', img_grid(x), self.current_epoch)
+
+        logits = self.forward(x)
+
+        loss = self.criterion(logits, y)
+
+        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True, logger=True)
+
+        return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
@@ -163,45 +158,22 @@ class Baseline(LightningModule):
         top_5 = top_k_accuracy(logits, y, k=5)
 
         loss_dict = {
-            "val_loss": loss,
+            "val_ce_loss": loss,
             "top_1": top_1,
             "top_5": top_5
         }
 
-        # output = {
-        #     'val_loss': loss_dict,
-        #     'log': loss_dict,
-        #     'progress_bar': loss_dict 
-        # }
-
         return loss_dict
     
     def validation_epoch_end(self, outputs):
-        # val_loss_mean = torch.stack([x['val_loss']['val_loss'] for x in outputs]).sum() / self.N_val
-        # top_1_mean = torch.stack([x['val_loss']['Top_1'] for x in outputs]).sum() / self.N_val
-        # top_5_mean = torch.stack([x['val_loss']['Top_5'] for x in outputs]).sum() / self.N_val
-
-        val_loss_mean = torch.stack([x['val_loss'] for x in outputs]).sum() / self.N_val
+        val_loss_mean = torch.stack([x['val_ce_loss'] for x in outputs]).sum() / self.N_val
         top_1_mean = torch.stack([x['top_1'] for x in outputs]).sum() / self.N_val
         top_5_mean = torch.stack([x['top_5'] for x in outputs]).sum() / self.N_val
 
-        # loss_dict = {
-        #     'val_loss': val_loss_mean,
-        #     'Top_1': top_1_mean,
-        #     'Top_5': top_5_mean
-        # }
-
-        self.log("val_loss", val_loss_mean, prog_bar=True, on_step=True, on_epoch=True, logger=True)
-        self.log("top_1", top_1_mean, prog_bar=True, on_step=True, on_epoch=True, logger=True)
-        self.log("top_5", top_5_mean, prog_bar=True, on_step=True, on_epoch=True, logger=True)
-
-        # output = {
-        #     'val_loss': val_loss_mean,
-        #     'log': loss_dict,
-        #     'progress_bar': loss_dict
-        # }
-
-        # return output
+        self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True) #VAL_LOSS IS ACTUALLY 1 - TOP_5 FOR CHECKPOINTING
+        self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True)
+        self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True)
+        self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
@@ -219,7 +191,7 @@ class Baseline(LightningModule):
         top_5 = top_k_accuracy(logits, y, k=5)
 
         loss_dict = {
-            "test_loss": loss,
+            "test_ce_loss": loss,
             "test_top_1": top_1,
             "test_top_5": top_5
         }
@@ -227,13 +199,13 @@ class Baseline(LightningModule):
         return loss_dict
     
     def test_epoch_end(self, outputs):
-        test_loss_mean = torch.stack([x['test_loss'] for x in outputs]).sum() / self.N_val
-        top_1_mean = torch.stack([x['test_top_1'] for x in outputs]).sum() / self.N_val
-        top_5_mean = torch.stack([x['test_top_5'] for x in outputs]).sum() / self.N_val
+        test_loss_mean = torch.stack([x['test_ce_loss'] for x in outputs]).sum() / self.N_test
+        top_1_mean = torch.stack([x['test_top_1'] for x in outputs]).sum() / self.N_test
+        top_5_mean = torch.stack([x['test_top_5'] for x in outputs]).sum() / self.N_test
 
-        self.log("test_loss", test_loss_mean, prog_bar=True, on_step=True, on_epoch=True, logger=True)
-        self.log("test_top_1", top_1_mean, prog_bar=True, on_step=True, on_epoch=True, logger=True)
-        self.log("test_top_5", top_5_mean, prog_bar=True, on_step=True, on_epoch=True, logger=True)
+        self.log("test_ce_loss", test_loss_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
+        self.log("test_top_1", top_1_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
+        self.log("test_top_5", top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
 
 def run_baseline():
     parser = argparse.ArgumentParser(description="Contrastive-Inversion")
@@ -256,11 +228,6 @@ def run_baseline():
         name='Contrastive-Inversion'
     )
     trainer.logger = logger
-
-    trainer.checkpoint_callback.monitor = "top_5"
-    trainer.checkpoint_callback.mode = (np.greater, -np.Inf, 'max')
-    trainer.checkpoint_callback.monitor_op = (np.greater, -np.Inf, 'max')
-    trainer.checkpoint_callback.kth_value = (np.greater, -np.Inf, 'max')
 
     trainer.test(model) #run an entire validation epoch before starting 
     trainer.fit(model)

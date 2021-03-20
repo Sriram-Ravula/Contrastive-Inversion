@@ -16,15 +16,11 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "TEST_Rand50"
+experiment_name: "Resnet_sq100"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
-distortion: "randommask" #randommask or squaremask
-percent_missing: 0.5 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
-#length: 100 #Only for squaremask
-#std: None #only for Gaussian noise
-#kernel_size: None #Only for Gaussian Blur
-#sigma: None #Only for Gaussian Blur
+distortion: "squaremask" #randommask or squaremask
+length: 100 #Only for squaremask
 
 #model - CHANGE BETWEEN RUNS
 encoder: "resnet" #'clip' or 'resnet'
@@ -32,13 +28,13 @@ clip_model: None #'ViT-B/32' or 'RN50' , only matters if encoder: "clip"
 pretrained: True
 
 #training
-max_epochs: 3
+max_epochs: 200
 lr: 0.001
 batch_size: 100 #150 for clip resnet, 300 for clip Vit, 100 for resnet
 
 #logging
-log_save_interval: 1 #set this to be equal to num_epochs if row_log_interval is 1
+log_save_interval: 10 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1  
 
 #validation
-check_val_every_n_epoch: 1 
+check_val_every_n_epoch: 2 
