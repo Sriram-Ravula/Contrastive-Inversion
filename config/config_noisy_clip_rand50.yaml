@@ -11,7 +11,7 @@ device: "cpu"
 loss: "contrastive"
 
 distortion: "randommask"
-percent_missing: 50
+percent_missing: 0.5
 
 lr: 0.01
 momentum: 0.3
@@ -33,9 +33,10 @@ workers: 12
 distributed_backend: "ddp"
 
 #training
-max_epochs: 50
-log_save_interval: 50 #set this to be equal to num_epochs if row_log_interval is 1
+max_epochs: 25
+log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
+sync_bn: True
 
 #validation
 check_val_every_n_epoch: 5
