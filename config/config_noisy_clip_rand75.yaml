@@ -8,7 +8,7 @@ gpus: 2
 encoder: "clip"
 baseclip_type: "RN50"
 device: "cpu"
-loss: "contrastive"
+loss_type: "simclr"
 
 distortion: "randommask"
 percent_missing: 0.75
