@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "resnet50_noisyclip_randommask_50"
+experiment_name: "resnet50_noisyclip_randommask_90_mse"
 
 num_nodes: 1
 gpus: 2
@@ -8,10 +8,10 @@ gpus: 2
 encoder: "clip"
 baseclip_type: "RN50"
 device: "cpu"
-loss_type: "simclr"
+loss_type: "mse"
 
 distortion: "randommask"
-percent_missing: 0.5
+percent_missing: 0.9
 
 lr: 0.0001
 momentum: 0.5
