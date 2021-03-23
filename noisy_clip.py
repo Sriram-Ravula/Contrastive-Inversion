@@ -25,36 +25,6 @@ from torch.utils.data  import random_split, DataLoader
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 from torchvision.datasets import CIFAR10
 
-class ContrastiveLoss(torch.nn.modules.loss._WeightedLoss):
-    """
-    DEPRECATED: moved inside the NoisyCLIP class.
-
-    Contrastive loss within a batch. The loss calculated tries to maximize
-    similarity between clean and noisy versions of the same image, while minimizing
-    similarity of clean and noisy versions of different images.
-    """
-    def __init__(self, weight: typing.Optional[Tensor] = None, size_average=None, reduce=None, reduction: str = 'mean', tau=1, device='cpu') -> None:
-        super(ContrastiveLoss, self).__init__(weight, size_average, reduce, reduction)
-        self.tau = tau
-        self.device = device
-
-    def forward(self, input1: Tensor, input2: Tensor) -> Tensor:
-        bsz = input1.shape[0]
-
-        # Create similarity matrix between embeddings.
-        full_tensor = torch.cat([input1.unsqueeze(1),input2.unsqueeze(1)], dim=1).view(2*bsz, 1, -1)
-        tensor1 = full_tensor.expand(2*bsz,2*bsz,-1)
-        tensor2 = full_tensor.permute(1,0,2).expand(2*bsz,2*bsz,-1)
-        sim_mat = torch.nn.CosineSimilarity(dim=-1)(tensor1,tensor2)
-
-        # Calculate logits used for the contrastive loss.
-        exp_sim_mat = torch.exp(sim_mat/self.tau)
-        mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).to(self.device)
-        logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
-
-        loss = (torch.sum(torch.diag(logmat, diagonal=1)) + torch.sum(torch.diag(logmat, diagonal=-1)))/2
-        return loss/bsz if self.reduction == 'mean' else loss
-
 class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
     """
     This class takes a dataset and creates a contrastive version of that dataset.
@@ -190,28 +160,38 @@ class NoisyCLIP(LightningModule):
         self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0].visual
         self.noisy_visual_encoder.train()
 
-    def criterion(self, input1, input2):
+    def criterion(self, input1, input2, reduction='mean'):
         bsz = input1.shape[0]
+        if self.hparams.loss_type == 'simclr':
+            # Create similarity matrix between embeddings.
+            full_tensor = torch.cat([input1.unsqueeze(1),input2.unsqueeze(1)], dim=1).view(2*bsz, 1, -1)
+            tensor1 = full_tensor.expand(2*bsz,2*bsz,-1)
+            tensor2 = full_tensor.permute(1,0,2).expand(2*bsz,2*bsz,-1)
+            sim_mat = torch.nn.CosineSimilarity(dim=-1)(tensor1,tensor2)
 
-        # Create similarity matrix between embeddings.
-        full_tensor = torch.cat([input1.unsqueeze(1),input2.unsqueeze(1)], dim=1).view(2*bsz, 1, -1)
-        tensor1 = full_tensor.expand(2*bsz,2*bsz,-1)
-        tensor2 = full_tensor.permute(1,0,2).expand(2*bsz,2*bsz,-1)
-        sim_mat = torch.nn.CosineSimilarity(dim=-1)(tensor1,tensor2)
+            # Calculate logits used for the contrastive loss.
+            exp_sim_mat = torch.exp(sim_mat/self.hparams.loss_tau)
+            mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).to(self.device)
+            logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
 
-        # Calculate logits used for the contrastive loss.
-        exp_sim_mat = torch.exp(sim_mat/self.hparams.loss_tau)
-        mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).to(self.device)
-        logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
+            part1 = torch.sum(torch.diag(logmat, diagonal=1)[np.arange(0,2*bsz,2)])
+            part2 = torch.sum(torch.diag(logmat, diagonal=-1)[np.arange(0,2*bsz,2)])
+            loss = (part1 + part2)/2
 
-        loss = (torch.sum(torch.diag(logmat, diagonal=1)) + torch.sum(torch.diag(logmat, diagonal=-1)))/2
-        return loss/bsz
+        elif self.hparams.loss_type == 'mse':
+            return F.mse_loss(input1, input2)
+
+        else:
+            raise ValueError('Loss function not understood.')
+
+        return loss/bsz if reduction == 'mean' else loss
 
 
     def configure_optimizers(self):
         optim = torch.optim.SGD(self.noisy_visual_encoder.parameters(), lr=self.hparams.lr, momentum=self.hparams.momentum)
-        sched = torch.optim.lr_scheduler.LambdaLR(optim, lambda epoch: 1/(epoch+1))
-        return [optim], [sched]
+        #sched = torch.optim.lr_scheduler.LambdaLR(optim, lambda epoch: 1/(epoch+1))
+        #return [optim], [sched]
+        return optim
 
     def encode_noisy_image(self, image):
         return self.noisy_visual_encoder(image.type(torch.float16))
