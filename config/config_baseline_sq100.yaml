@@ -37,4 +37,4 @@ log_save_interval: 10 #set this to be equal to num_epochs if row_log_interval is
 row_log_interval: 1  
 
 #validation
-check_val_every_n_epoch: 2 
+check_val_every_n_epoch: 1
