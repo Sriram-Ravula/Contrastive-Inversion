@@ -117,18 +117,18 @@ class GaussianNoise(object):
         self.std = std
         self.fixed = fixed
         self.noise = None
-    
+
     def __call__(self, image):
         c, h, w = image.shape[-3:]
 
         if self.fixed and self.noise is not None:
             return image + self.noise
-        
+
         noise = torch.randn((c, h, w)) * self.std
 
         if self.fixed:
             self.noise = noise
-        
+
         return image + noise
 
 class ImageNetBaseTransform:
@@ -155,6 +155,31 @@ class ImageNetBaseTransform:
     def __call__(self, x):
         return self.transform(x)
 
+class ImageNetBaseTransformVal:
+    """
+    Torchvision composition of transforms equivalent to the one required for CLIP clean images.
+    For validation, this class will always crop from the center of the image and NOT apply a random horizontal flip.
+    """
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
+
+        self.transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize
+        ])
+
+    def __call__(self, x):
+        return self.transform(x)
+
 
 class ImageNetDistortTrain:
     """
@@ -170,7 +195,7 @@ class ImageNetDistortTrain:
             normalize = transforms.Normalize(
                 mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
             )
-            
+
         if args.distortion == "squaremask":
             distortion = SquareMask(length=args.length, offset="center", fixed = True)
         elif args.distortion == "randommask":
@@ -179,7 +204,7 @@ class ImageNetDistortTrain:
             distortion = GaussianNoise(std=args.std, fixed=True)
         elif args.distortion == "gaussianblur":
             distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
-        
+
         self.transform = transforms.Compose([
             transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
@@ -205,7 +230,7 @@ class ImageNetDistortVal:
             normalize = transforms.Normalize(
                 mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
             )
-            
+
         if args.distortion == "squaremask":
             distortion = SquareMask(length=args.length, offset="center", fixed = True)
         elif args.distortion == "randommask":
@@ -214,7 +239,7 @@ class ImageNetDistortVal:
             distortion = GaussianNoise(std=args.std, fixed=True)
         elif args.distortion == "gaussianblur":
             distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
-        
+
         self.transform = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
@@ -229,10 +254,10 @@ class ImageNetDistortVal:
 def img_grid(data):
     """
     Creates an 8x8 grid out of given batch of images.
-    
+
     Arguments:
     data - an [N, 3, H, W] tensor of images, where N >= 64. Does not have to be normalized to [0, 1] or [-1, 1]
-    
+
     Returns:
     grid - an 8x8 grid of images
     """
@@ -245,10 +270,10 @@ def img_grid(data):
 def yaml_config_hook(config_file):
     """
     Custom YAML config loader, which can include other yaml files.
-    
+
     Arguments:
     config_file - a .yaml file with a dictionary of configuration parameters
-    
+
     Returns:
     cfg - a parseable dictionary of configuration options
     """
@@ -271,12 +296,12 @@ def yaml_config_hook(config_file):
 def top_k_accuracy(input, targs, k=1):
     """
     Computes the Top-k accuracy (target is in the top k predictions).
-    
+
     Arguments:
     input - an [N, num_classes] tensor with a probability distribution over classes at each index i=1:N
     targs - an [N] tensor with ground truth class label for each sample i=1:N
     k - the k for the top-k values to take from input
-    
+
     Returns:
     top_k_accuracy - the top-k accuracy of inputs relative to targs
     """
@@ -336,9 +361,9 @@ def map_classes(og_classes, remap):
     Arguments:
     og_classes - the tensor of original batch labels
     remap - the dictionary to remap classes {old_label: new_label}
-    
+
     Returns:
-    new_classes - a tensor of the same type as og_classes, with the new classes for the data batch 
+    new_classes - a tensor of the same type as og_classes, with the new classes for the data batch
     """
 
     x = og_classes.cpu().numpy()
