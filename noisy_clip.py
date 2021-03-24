@@ -179,7 +179,7 @@ class NoisyCLIP(LightningModule):
             loss = (part1 + part2)/2
 
         elif self.hparams.loss_type == 'mse':
-            return F.mse_loss(input1, input2)
+            return F.mse_loss(input2, input1)
 
         else:
             raise ValueError('Loss function not understood.')
