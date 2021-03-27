@@ -4,7 +4,8 @@ import torchvision.transforms as transforms
 import torchvision
 import os
 import yaml
-from torch.utils.data.dataset import Subset
+from torch.utils.data.dataset import Dataset, Subset
+from torchvision.datasets import ImageFolder
 
 
 class RandomMask(object):
@@ -250,6 +251,30 @@ class ImageNetDistortVal:
 
     def __call__(self, x):
         return self.transform(x)
+
+class ImageNet100(ImageFolder):
+    """
+    Dataset for ImageNet100. Majority of code taken from torchvision.datasets.ImageNet.
+    NOT TESTED YET.
+    """
+    def __init__(self, root, split, meta_file, transform=None):
+        root = os.path.expanduser(root)
+        if split != 'train' and split != 'val':
+            raise ValueError('Split should be train or val.')
+
+        super(ImageNet100, self).__init__(os.path.join(), **kwargs)
+        self.root = root
+        self.split = split
+        self.transform = transform
+
+        wnid_to_classes = torch.load(os.path.join(self.root, meta_file))[0]
+        self.wnids = self.classes
+        self.wnid_to_idx = self.class_to_idx
+        self.classes = [wnid_to_classes[wnid] for wnid in self.wnids]
+        self.class_to_idx = {cls: idx
+                             for idx, clss in enumerate(self.classes)
+                             for cls in clss}
+
 
 def img_grid(data):
     """
