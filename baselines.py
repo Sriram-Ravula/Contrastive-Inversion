@@ -24,8 +24,10 @@ class Baseline(LightningModule):
             self.class_map = None
 
         if self.hparams.encoder == 'resnet':
-            #(1) load a resnet model with or without ImageNet Pre-Training
-            self.encoder = models.resnet50(pretrained=self.hparams.pretrained)
+            if self.hparams.resnet_model == "50":
+                self.encoder = models.resnet50(pretrained=self.hparams.pretrained)
+            elif self.hparams.resnet_model == "101":
+                self.encoder = models.resnet101(pretrained=self.hparams.pretrained)
 
             #(2) replace the last, linear layer of Resnet with one that has appropriate dimension for CIFAR-10
             self.encoder.fc = nn.Linear(self.encoder.fc.in_features, self.hparams.num_classes) #replace the resnet output with correct number of classes
@@ -210,7 +212,7 @@ class Baseline(LightningModule):
 def run_baseline():
     parser = argparse.ArgumentParser(description="Contrastive-Inversion")
 
-    config = yaml_config_hook("./config/config_baseline_sq100.yaml")
+    config = yaml_config_hook("./config/config_baseline_noise.yaml")
     for k, v in config.items():
         parser.add_argument(f"--{k}", default=v, type=type(v))
 

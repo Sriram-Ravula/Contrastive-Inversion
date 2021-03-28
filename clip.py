@@ -9,14 +9,16 @@ from PIL import Image
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 from tqdm import tqdm
 
-from model import build_model
-from simple_tokenizer import SimpleTokenizer as _Tokenizer
+from .model import build_model
+from .simple_tokenizer import SimpleTokenizer as _Tokenizer
 
 __all__ = ["available_models", "load", "tokenize"]
 _tokenizer = _Tokenizer()
 
 _MODELS = {
     "RN50": "https://openaipublic.azureedge.net/clip/models/afeb0e10f9e5a86da6080e35cf09123aca3b358a0c3e3b6c78a7b63bc04b6762/RN50.pt",
+    "RN101": "https://openaipublic.azureedge.net/clip/models/8fa8567bab74a42d41c5915025a8e4538c3bdbe8804a470a72f30b0d94fab599/RN101.pt",
+    "RN50x4": "https://openaipublic.azureedge.net/clip/models/7e526bd135e493cef0776de27d5f42653e6b4c8bf9e0f653bb11773263205fdd/RN50x4.pt",
     "ViT-B/32": "https://openaipublic.azureedge.net/clip/models/40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af/ViT-B-32.pt",
 }
 
@@ -38,7 +40,7 @@ def _download(url: str, root: str = os.path.expanduser("~/.cache/clip")):
             warnings.warn(f"{download_target} exists, but the SHA256 checksum does not match; re-downloading the file")
 
     with urllib.request.urlopen(url) as source, open(download_target, "wb") as output:
-        with tqdm(total=int(source.info().get("Content-Length")), ncols=80) as loop:
+        with tqdm(total=int(source.info().get("Content-Length")), ncols=80, unit='iB', unit_scale=True) as loop:
             while True:
                 buffer = source.read(8192)
                 if not buffer:
@@ -53,29 +55,66 @@ def _download(url: str, root: str = os.path.expanduser("~/.cache/clip")):
     return download_target
 
 
-def available_models():
-    return list(_MODELS.keys())
-
-
-def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_available() else "cpu", jit=True):
-    if name not in _MODELS:
-        raise RuntimeError(f"Model {name} not found; available models = {available_models()}")
-
-    model_path = _download(_MODELS[name])
-    model = torch.jit.load(model_path, map_location=device if jit else "cpu").eval()
-    n_px = model.input_resolution.item()
-
-    transform = Compose([
+def _transform(n_px):
+    return Compose([
         Resize(n_px, interpolation=Image.BICUBIC),
         CenterCrop(n_px),
         lambda image: image.convert("RGB"),
         ToTensor(),
-        Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)), #Why these mus and stds? - range is larger than [-1,1]
+        Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
     ])
 
+
+def available_models() -> List[str]:
+    """Returns the names of available CLIP models"""
+    return list(_MODELS.keys())
+
+
+def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_available() else "cpu", jit=True):
+    """Load a CLIP model
+
+    Parameters
+    ----------
+    name : str
+        A model name listed by `clip.available_models()`, or the path to a model checkpoint containing the state_dict
+
+    device : Union[str, torch.device]
+        The device to put the loaded model
+
+    jit : bool
+        Whether to load the optimized JIT model (default) or more hackable non-JIT model.
+
+    Returns
+    -------
+    model : torch.nn.Module
+        The CLIP model
+
+    preprocess : Callable[[PIL.Image], torch.Tensor]
+        A torchvision transform that converts a PIL image into a tensor that the returned model can take as its input
+    """
+    if name in _MODELS:
+        model_path = _download(_MODELS[name])
+    elif os.path.isfile(name):
+        model_path = name
+    else:
+        raise RuntimeError(f"Model {name} not found; available models = {available_models()}")
+
+    try:
+        # loading JIT archive
+        model = torch.jit.load(model_path, map_location=device if jit else "cpu").eval()
+        state_dict = None
+    except RuntimeError:
+        # loading saved state dict
+        if jit:
+            warnings.warn(f"File {model_path} is not a JIT archive. Loading as a state dict instead")
+            jit = False
+        state_dict = torch.load(model_path, map_location="cpu")
+
     if not jit:
-        model = build_model(model.state_dict()).to(device)
-        return model, transform
+        model = build_model(state_dict or model.state_dict()).to(device)
+        if str(device) == "cpu":
+            model.float()
+        return model, _transform(model.visual.input_resolution)
 
     # patch the device names
     device_holder = torch.jit.trace(lambda: torch.ones([]).to(torch.device(device)), example_inputs=[])
@@ -96,7 +135,7 @@ def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_a
     patch_device(model.encode_text)
 
     # patch dtype to float32 on CPU
-    if device == "cpu":
+    if str(device) == "cpu":
         float_holder = torch.jit.trace(lambda: torch.ones([]).float(), example_inputs=[])
         float_input = list(float_holder.graph.findNode("aten::to").inputs())[1]
         float_node = float_input.node()
@@ -119,10 +158,25 @@ def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_a
 
         model.float()
 
-    return model, transform
+    return model, _transform(model.input_resolution.item())
 
-#add begin and end token to input text, check for context length overflow
-def tokenize(texts: Union[str, List[str]], context_length: int = 77):
+
+def tokenize(texts: Union[str, List[str]], context_length: int = 77) -> torch.LongTensor:
+    """
+    Returns the tokenized representation of given input string(s)
+
+    Parameters
+    ----------
+    texts : Union[str, List[str]]
+        An input string or a list of input strings to tokenize
+
+    context_length : int
+        The context length to use; all CLIP models use 77 as the context length
+
+    Returns
+    -------
+    A two-dimensional tensor containing the resulting tokens, shape = [number of input strings, context_length]
+    """
     if isinstance(texts, str):
         texts = [texts]
 
