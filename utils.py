@@ -285,6 +285,11 @@ class ImageNet100(ImageFolder):
                              for idx, clss in enumerate(self.classes)
                              for cls in clss}
 
+        #create a dictionary of UNIQUE {index: class values} where the class is the simplest form of the wnid (e.g. common name and not scientific name)
+        self.idx_to_class = {idx: cls
+                             for idx, clss in enumerate(self.classes)
+                             for i, cls in enumerate(clss) if i is 0}
+
 
 def img_grid(data):
     """
