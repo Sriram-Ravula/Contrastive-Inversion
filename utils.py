@@ -257,20 +257,30 @@ class ImageNet100(ImageFolder):
     Dataset for ImageNet100. Majority of code taken from torchvision.datasets.ImageNet.
     NOT TESTED YET.
     """
-    def __init__(self, root, split, meta_file, transform=None):
+    def __init__(self, root, split, transform=None, **kwargs):
+        #checking stuff
         root = os.path.expanduser(root)
         if split != 'train' and split != 'val':
             raise ValueError('Split should be train or val.')
+        
+        #contains our desired {wnid: class} dictionary
+        META_FILE = "meta.bin"
 
-        super(ImageNet100, self).__init__(os.path.join(), **kwargs)
+        #initialize parameters from DatasetFolder
+        super(ImageNet100, self).__init__(os.path.join(root, split), **kwargs)
         self.root = root
         self.split = split
         self.transform = transform
 
-        wnid_to_classes = torch.load(os.path.join(self.root, meta_file))[0]
-        self.wnids = self.classes
-        self.wnid_to_idx = self.class_to_idx
-        self.classes = [wnid_to_classes[wnid] for wnid in self.wnids]
+        #from the dataset fodler class, we inherit two properties
+        #self.classes is a list of class names based on the folders present in our subset - actually wnids!
+        #self.class_to_idx is a dict {wnid: wnid_index} where wnid_index is a number from 0 to 99
+
+        #Load the {wnid: class_name} dictionary from meta.bin
+        wnid_to_classes = torch.load(os.path.join(self.root, META_FILE))[0]
+        self.wnids = self.classes #current self.classes is actually wnids!
+        self.wnid_to_idx = self.class_to_idx 
+        self.classes = [wnid_to_classes[wnid] for wnid in self.wnids] #get the actual class names (e.g. "bird")
         self.class_to_idx = {cls: idx
                              for idx, clss in enumerate(self.classes)
                              for cls in clss}

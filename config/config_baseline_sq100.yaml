@@ -2,7 +2,7 @@
 seed: 1234
 
 #data - SAME BETWEEN RUNS
-dataset_dir: "../Datasets/ILSVRC/Data/CLS-LOC/"
+dataset_dir: "/tmp/Imagenet100/"
 dataset: "Imagenet-100"
 num_classes: 100
 subset_file_name: "imagenet100.txt"

@@ -13,6 +13,43 @@ from utils import img_grid, yaml_config_hook, top_k_accuracy, get_subset, map_cl
 import clip
 import numpy as np
 
+class CLIP_finetune(nn.Module):
+    def __init__(self, args):
+        super(CLIP_supervised, self).__init__()
+
+        self.baseclip = clip.load(args.clip_type, device='cpu', jit=False)[0].visual
+        self.baseclip.train()
+
+        if args.clip_type == 'ViT-B/32' or args.clip_type == 'RN101':
+            self.output = nn.Linear(512, args.num_classes)
+        elif args.clip_type == 'RN50':
+            self.output = nn.Linear(1024, args.num_classes)
+        elif args.clip_type == 'RN50x4':
+            self.output = nn.Linear(640, args.num_classes)
+        else:
+            raise ValueError("Unsupported CLIP model selected.")
+        
+    def forward(self, x):
+        n = x.size(0)
+        x = self.baseclip(x)
+
+        return self.output(x.view(n, -1).float())
+
+class RESNET_finetune(nn.Module):
+    def __init__(self, args):
+        super(RESNET_finetune, self).__init__()
+
+        if args.resnet_model == "50":
+            self.encoder = models.resnet50(pretrained=args.pretrained)
+        elif args.resnet_model == "101":
+            self.encoder = models.resnet101(pretrained=args.pretrained)
+
+        self.encoder.fc = nn.Linear(self.encoder.fc.in_features, args.num_classes) 
+
+    def forward(self, x):
+        return self.encoder(x)
+
+
 class Baseline(LightningModule):
     def __init__(self, args):
         super(Baseline, self).__init__()
@@ -20,46 +57,30 @@ class Baseline(LightningModule):
         self.hparams = args
         self.world_size = self.hparams.num_nodes * self.hparams.gpus
 
+        #(1) Set up the dataset
+        #Here, we use a 100-class subset of ImageNet
         if self.hparams.dataset == "Imagenet-100":
             self.class_map = None
+        else:
+            raise ValueError("Unsupported dataset selected.")
 
+        #(2) Grab the correct baseline pre-trained model
         if self.hparams.encoder == 'resnet':
-            if self.hparams.resnet_model == "50":
-                self.encoder = models.resnet50(pretrained=self.hparams.pretrained)
-            elif self.hparams.resnet_model == "101":
-                self.encoder = models.resnet101(pretrained=self.hparams.pretrained)
-
-            #(2) replace the last, linear layer of Resnet with one that has appropriate dimension for CIFAR-10
-            self.encoder.fc = nn.Linear(self.encoder.fc.in_features, self.hparams.num_classes) #replace the resnet output with correct number of classes
-
+            self.encoder = RESNET_finetune(self.hparams)
         elif self.hparams.encoder == 'clip':
-            clip_type = self.hparams.clip_model
+            self.encoder = CLIP_finetune(self.hparams)
+        else:
+            raise ValueError("Please select a valid encoder model.")
 
-            #Extract the visual encoder from the pre-trained CLIP
-            self.baseclip = clip.load(clip_type, device='cpu', jit=False)[0].visual
-            self.baseclip.train()
-
-            if clip_type == 'ViT-B/32':
-                self.output = nn.Linear(512, self.hparams.num_classes)
-            elif clip_type == 'RN50':
-                self.output = nn.Linear(1024, self.hparams.num_classes)
-
-        self.criterion = nn.CrossEntropyLoss()
+        #(3) Set up our criterion - here we use reduction as "sum" so that we are able to average over all validation sets
+        self.criterion = nn.CrossEntropyLoss(reduction == "sum")
 
     def forward(self, x):
-        if self.hparams.encoder == 'clip':
-            n = x.size(0)
-            x = self.baseclip(x)
-
-            return self.output(x.view(n, -1).float())
-
-        elif self.hparams.encoder == 'resnet':
-            return self.encoder(x)
+        return self.encoder(x)
     
     def configure_optimizers(self):
         if self.hparams.encoder == 'clip':
-            #opt = torch.optim.Adam(list(self.baseclip.parameters()) + list(self.output.parameters()), lr = self.hparams.lr)
-            opt = torch.optim.SGD(list(self.baseclip.parameters()) + list(self.output.parameters()), lr = self.hparams.lr, momentum=0.7)
+            opt = torch.optim.SGD(self.encoder.parameters(), lr = self.hparams.lr, momentum = 0.5)
 
         elif self.hparams.encoder == 'resnet':
             opt = torch.optim.Adam(self.encoder.parameters(), lr = self.hparams.lr)
@@ -172,7 +193,7 @@ class Baseline(LightningModule):
         top_1_mean = torch.stack([x['top_1'] for x in outputs]).sum() / self.N_val
         top_5_mean = torch.stack([x['top_5'] for x in outputs]).sum() / self.N_val
 
-        self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True) #VAL_LOSS IS ACTUALLY 1 - TOP_5 FOR CHECKPOINTING
+        self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True) #VAL_LOSS IS ACTUALLY (1 - TOP_5) FOR CHECKPOINTING
         self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True)
         self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True)
         self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True)
@@ -212,7 +233,7 @@ class Baseline(LightningModule):
 def run_baseline():
     parser = argparse.ArgumentParser(description="Contrastive-Inversion")
 
-    config = yaml_config_hook("./config/config_baseline_noise.yaml")
+    config = yaml_config_hook("./config/config_baseline_sq100.yaml")
     for k, v in config.items():
         parser.add_argument(f"--{k}", default=v, type=type(v))
 
@@ -225,7 +246,7 @@ def run_baseline():
     trainer = Trainer.from_argparse_args(args)
 
     logger = TensorBoardLogger(
-        save_dir= "../Logs",
+        save_dir= "/tmp/Logs",
         version=args.experiment_name,
         name='Contrastive-Inversion'
     )
