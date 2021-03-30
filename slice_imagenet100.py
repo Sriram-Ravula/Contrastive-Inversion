@@ -5,10 +5,10 @@ import sys
 import shutil
 from glob import glob
 
-ORIG_IMAGENET_DIR = '/home/sriram/Projects/Datasets/Imagenet/ILSVRC/Data/CLS-LOC'
-IMAGENET100_DIR = '/home/sriram/Projects/Datasets/ImageNet100'
+ORIG_IMAGENET_DIR = '../Datasets/ILSVRC/Data/CLS-LOC'
+IMAGENET100_DIR = '../Datasets/ImageNet100'
 IMAGENET100_CLASSES = 'imagenet100.txt'
-ZIP_PATH = '/home/sriram/Projects/Datasets'
+ZIP_PATH = '../Datasets'
 
 def zip_imagenet100():
     """

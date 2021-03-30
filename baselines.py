@@ -9,7 +9,7 @@ from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 import torchvision.models as models
-from utils import img_grid, yaml_config_hook, top_k_accuracy, get_subset, map_classes, ImageNetDistortTrain, ImageNetDistortVal
+from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100, copy_logs, clean_folder
 import clip
 import numpy as np
 
@@ -59,9 +59,7 @@ class Baseline(LightningModule):
 
         #(1) Set up the dataset
         #Here, we use a 100-class subset of ImageNet
-        if self.hparams.dataset == "Imagenet-100":
-            self.class_map = None
-        else:
+        if self.hparams.dataset is not "Imagenet-100":
             raise ValueError("Unsupported dataset selected.")
 
         #(2) Grab the correct baseline pre-trained model
@@ -89,18 +87,11 @@ class Baseline(LightningModule):
 
     def train_dataloader(self):
         if self.hparams.dataset == "Imagenet-100":
-            train_dataset = torchvision.datasets.ImageNet(
+            train_dataset = utils.ImageNet100(
                 root=self.hparams.dataset_dir,
-                split="train",
-                transform=ImageNetDistortTrain(self.hparams)
+                split = 'train',
+                transform = ImageNetDistortTrain(self.hparams)
             )
-
-            filename = self.hparams.dataset_dir + self.hparams.subset_file_name
-
-            train_dataset, og_to_new_dict = get_subset(train_dataset, filename=filename)
-
-            if self.class_map == None:
-                self.class_map = og_to_new_dict
 
         train_dataloader = DataLoader(train_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
                                         pin_memory=True, shuffle=True)
@@ -109,18 +100,11 @@ class Baseline(LightningModule):
 
     def val_dataloader(self):
         if self.hparams.dataset == "Imagenet-100":
-            val_dataset = torchvision.datasets.ImageNet(
+            val_dataset = utils.ImageNet100(
                 root=self.hparams.dataset_dir,
-                split="val",
-                transform=ImageNetDistortVal(self.hparams)
+                split = 'val',
+                transform = ImageNetDistortVal(self.hparams)
             )
-
-            filename = self.hparams.dataset_dir + self.hparams.subset_file_name
-
-            val_dataset, og_to_new_dict = get_subset(val_dataset, filename=filename)
-
-            if self.class_map == None:
-                self.class_map = og_to_new_dict
 
         self.N_val = len(val_dataset)
 
@@ -131,18 +115,11 @@ class Baseline(LightningModule):
 
     def test_dataloader(self):
         if self.hparams.dataset == "Imagenet-100":
-            test_dataset = torchvision.datasets.ImageNet(
+            test_dataset = utils.ImageNet100(
                 root=self.hparams.dataset_dir,
-                split="val",
-                transform=ImageNetDistortVal(self.hparams)
+                split = 'val',
+                transform = ImageNetDistortVal(self.hparams)
             )
-
-            filename = self.hparams.dataset_dir + self.hparams.subset_file_name
-
-            test_dataset, og_to_new_dict = get_subset(test_dataset, filename=filename)
-
-            if self.class_map == None:
-                self.class_map = og_to_new_dict
 
         self.N_test = len(test_dataset)
 
@@ -153,9 +130,6 @@ class Baseline(LightningModule):
     
     def training_step(self, batch, batch_idx):
         x, y = batch
-
-        if self.hparams.dataset == "Imagenet-100":
-            y = map_classes(y, self.class_map)
 
         if batch_idx == 0 and self.current_epoch == 0:
             self.logger.experiment.add_image('Train_Sample', img_grid(x), self.current_epoch)
@@ -170,9 +144,6 @@ class Baseline(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        
-        if self.hparams.dataset == "Imagenet-100":
-            y = map_classes(y, self.class_map)
 
         logits = self.forward(x)
 
@@ -200,9 +171,6 @@ class Baseline(LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        
-        if self.hparams.dataset == "Imagenet-100":
-            y = map_classes(y, self.class_map)
             
         if batch_idx == 0:
             self.logger.experiment.add_image('Test_Sample', img_grid(x), self.current_epoch)
@@ -255,6 +223,17 @@ def run_baseline():
     trainer.test(model) #run an entire validation epoch before starting 
     trainer.fit(model)
     trainer.test() #run one final validation epoch at the end - no arguments means pick best save
+
+    #copy everything back to $WORK
+    tmp_dir = '/tmp/Logs/Contrastive-Inversion'
+    dest_log_dir = '../Logs/Contrastive-Inversion'
+
+    utils.copy_logs(tmp_dir, dest_log_dir)
+
+    #clean up /tmp/
+    tmp_root = '/tmp'
+
+    utils.clean_folder(tmp_root)
 
 
 if __name__ == "__main__":
