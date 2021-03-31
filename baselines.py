@@ -203,6 +203,7 @@ class Baseline(LightningModule):
         self.log("test_top_5", top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
 
 def run_baseline():
+    #Grab the argments
     parser = argparse.ArgumentParser(description="Contrastive-Inversion")
 
     config = yaml_config_hook("./config/config_baseline_sq100.yaml")
@@ -211,19 +212,25 @@ def run_baseline():
 
     args = parser.parse_args()
 
+    #save the original epcosh and validation intervals to resotre after hyperparameter tuning
     orig_epochs = args.max_epochs
     orig_val = args.check_val_every_n_epoch
-    
 
-    top_5_best = 100000
+    #set these to be 1 for tuning
+    args.max_epochs = 1
+    args.check_val_every_n_epoch = 1
+
+    #track the best top_5 loss and corresponsing learning rate
+    top_5_best = 0
     lr_best = 1
+
+    #Tune learning rate for top 5 accuracy
     for lr in [1e-2, 1e-3, 1e-4, 1e-5]:
         print(lr)
 
         seed_everything(args.seed)
 
         args.lr = lr
-
 
         model = Baseline(args)
 
@@ -243,7 +250,29 @@ def run_baseline():
         if top_5 > top_5_best:
             top_5_best = top_5
             lr_best = lr
+    
+    print("BEST LR: ", lr_best)
+    
+    #Now run the actual good hyperparams
+    args.max_epochs = orig_epochs
+    args.check_val_every_n_epoch = orig_val
 
+    seed_everything(args.seed)
+
+    args.lr = lr_best
+
+    model = Baseline(args)
+
+    trainer = Trainer.from_argparse_args(args)
+
+    logger = TensorBoardLogger(
+        save_dir= args.logdir,
+        version=args.experiment_name,
+        name='Contrastive-Inversion'
+    )
+    trainer.logger = logger
+
+    trainer.fit(model)
 
 if __name__ == "__main__":
     run_baseline()
