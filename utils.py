@@ -426,16 +426,3 @@ def copy_logs(src_root, dest_root):
         dest_path =  os.path.join(dest_root, log_folder)
 
         shutil.copytree(src_path, dest_path)
-
-def clean_folder(root):
-    """
-    Given a root folder, clears everything on it
-
-    Args:
-        root - folder from which to delete everything permanently
-    """
-
-    for folder in os.listdir(root):
-        fld_path = os.join(root, folder)
-
-        shutil.rmtree(fld_path) 

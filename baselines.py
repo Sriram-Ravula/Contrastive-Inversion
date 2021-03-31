@@ -78,7 +78,7 @@ class Baseline(LightningModule):
     
     def configure_optimizers(self):
         if self.hparams.encoder == 'clip':
-            opt = torch.optim.SGD(self.encoder.parameters(), lr = self.hparams.lr, momentum = 0.5)
+            opt = torch.optim.SGD(self.encoder.parameters(), lr = self.hparams.lr, momentum = 0.3)
 
         elif self.hparams.encoder == 'resnet':
             opt = torch.optim.Adam(self.encoder.parameters(), lr = self.hparams.lr)
@@ -230,10 +230,9 @@ def run_baseline():
 
     utils.copy_logs(tmp_dir, dest_log_dir)
 
-    #clean up /tmp/
-    tmp_root = '/tmp'
-
-    utils.clean_folder(tmp_root)
+    #Delete unnecessary stuff
+    #shutil.rmtree('/tmp/Logs') 
+    #shutil.rmtree('/tmp/ImageNet100')
 
 
 if __name__ == "__main__":
