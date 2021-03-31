@@ -16,7 +16,7 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "CLIP_RN50_squaretest"
+experiment_name: "CLIP_RN50x4_squaretest"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "squaremask" #randommask or squaremask
@@ -25,13 +25,13 @@ length: 100 #Only for squaremask
 #model - CHANGE BETWEEN RUNS
 encoder: "clip" #'clip' or 'resnet'
 #resnet_model: "50" #50 or 101
-clip_model: RN50 #'ViT-B/32' or 'RN50' , only matters if encoder: "clip"
+clip_model: 'RN50x4' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if encoder: "clip"
 pretrained: True
 
 #training
 max_epochs: 1
 lr: 0.001
-batch_size: 128 #150 for clip resnet, 300 for clip Vit, 100 for resnet
+batch_size: 16 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,     
 
 #logging
 log_save_interval: 1 #set this to be equal to num_epochs if row_log_interval is 1
