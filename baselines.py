@@ -9,7 +9,7 @@ from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 import torchvision.models as models
-from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100, copy_logs
+from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100
 import clip
 import numpy as np
 
@@ -77,11 +77,7 @@ class Baseline(LightningModule):
         return self.encoder(x)
     
     def configure_optimizers(self):
-        if self.hparams.encoder == 'clip':
-            opt = torch.optim.SGD(self.encoder.parameters(), lr = self.hparams.lr, momentum = 0.3)
-
-        elif self.hparams.encoder == 'resnet':
-            opt = torch.optim.Adam(self.encoder.parameters(), lr = self.hparams.lr)
+        opt = torch.optim.Adam(self.encoder.parameters(), lr = self.hparams.lr)
 
         return opt
 
@@ -214,7 +210,7 @@ def run_baseline():
     trainer = Trainer.from_argparse_args(args)
 
     logger = TensorBoardLogger(
-        save_dir= "/tmp/Logs",
+        save_dir= args.logdir,
         version=args.experiment_name,
         name='Contrastive-Inversion'
     )

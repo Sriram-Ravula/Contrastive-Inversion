@@ -113,8 +113,6 @@ class GaussianNoise(object):
         fixed - whether or not the noise we are adding is fixed for all images
     """
     def __init__(self, std, fixed=False):
-        assert isinstance(std, float)
-
         self.std = std
         self.fixed = fixed
         self.noise = None
@@ -411,4 +409,3 @@ def map_classes(og_classes, remap):
     new_classes = new_classes.type_as(og_classes)
 
     return new_classes
-    
