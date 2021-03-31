@@ -13,6 +13,7 @@ from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTra
 import clip
 import numpy as np
 
+
 class CLIP_finetune(nn.Module):
     def __init__(self, args):
         super(CLIP_finetune, self).__init__()
@@ -79,7 +80,14 @@ class Baseline(LightningModule):
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.encoder.parameters(), lr = self.hparams.lr)
 
-        return opt
+        if self.hparams.dataset == "ImageNet100":
+            num_steps = 126689//self.hparams.batch_size
+        else:
+            num_steps = 100
+
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=num_steps)
+
+        return [opt], [scheduler]
 
     def train_dataloader(self):
         if self.hparams.dataset == "ImageNet100":
@@ -160,10 +168,10 @@ class Baseline(LightningModule):
         top_1_mean = torch.stack([x['top_1'] for x in outputs]).sum() / self.N_val
         top_5_mean = torch.stack([x['top_5'] for x in outputs]).sum() / self.N_val
 
-        self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True) #VAL_LOSS IS ACTUALLY (1 - TOP_5) FOR CHECKPOINTING
-        self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True)
-        self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True)
-        self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True)
+        self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True, sync_dist=True) #VAL_LOSS IS ACTUALLY (1 - TOP_5) FOR CHECKPOINTING
+        self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
+        self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
+        self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
@@ -203,22 +211,38 @@ def run_baseline():
 
     args = parser.parse_args()
 
-    seed_everything(args.seed)
+    orig_epochs = args.max_epochs
+    orig_val = args.check_val_every_n_epoch
+    
 
-    model = Baseline(args)
+    top_5_best = 100000
+    lr_best = 1
+    for lr in [1e-2, 1e-3, 1e-4, 1e-5]:
+        print(lr)
 
-    trainer = Trainer.from_argparse_args(args)
+        seed_everything(args.seed)
 
-    logger = TensorBoardLogger(
-        save_dir= args.logdir,
-        version=args.experiment_name,
-        name='Contrastive-Inversion'
-    )
-    trainer.logger = logger
+        args.lr = lr
 
-    trainer.test(model) #run an entire validation epoch before starting 
-    trainer.fit(model)
-    trainer.test() #run one final validation epoch at the end - no arguments means pick best save
+
+        model = Baseline(args)
+
+        trainer = Trainer.from_argparse_args(args)
+
+        logger = TensorBoardLogger(
+            save_dir= args.logdir,
+            version=args.experiment_name,
+            name='Contrastive-Inversion'
+        )
+        trainer.logger = logger
+
+        trainer.fit(model)
+        
+        top_5 = trainer.logged_metrics["top_5"]
+        
+        if top_5 > top_5_best:
+            top_5_best = top_5
+            lr_best = lr
 
 
 if __name__ == "__main__":
