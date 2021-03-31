@@ -9,22 +9,22 @@ from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 import torchvision.models as models
-from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100, copy_logs, clean_folder
+from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100, copy_logs
 import clip
 import numpy as np
 
 class CLIP_finetune(nn.Module):
     def __init__(self, args):
-        super(CLIP_supervised, self).__init__()
+        super(CLIP_finetune, self).__init__()
 
-        self.baseclip = clip.load(args.clip_type, device='cpu', jit=False)[0].visual
+        self.baseclip = clip.load(args.clip_model, device='cpu', jit=False)[0].visual
         self.baseclip.train()
 
-        if args.clip_type == 'ViT-B/32' or args.clip_type == 'RN101':
+        if args.clip_model == 'ViT-B/32' or args.clip_model == 'RN101':
             self.output = nn.Linear(512, args.num_classes)
-        elif args.clip_type == 'RN50':
+        elif args.clip_model == 'RN50':
             self.output = nn.Linear(1024, args.num_classes)
-        elif args.clip_type == 'RN50x4':
+        elif args.clip_model == 'RN50x4':
             self.output = nn.Linear(640, args.num_classes)
         else:
             raise ValueError("Unsupported CLIP model selected.")
@@ -59,7 +59,7 @@ class Baseline(LightningModule):
 
         #(1) Set up the dataset
         #Here, we use a 100-class subset of ImageNet
-        if self.hparams.dataset is not "Imagenet-100":
+        if self.hparams.dataset != "ImageNet100":
             raise ValueError("Unsupported dataset selected.")
 
         #(2) Grab the correct baseline pre-trained model
@@ -71,7 +71,7 @@ class Baseline(LightningModule):
             raise ValueError("Please select a valid encoder model.")
 
         #(3) Set up our criterion - here we use reduction as "sum" so that we are able to average over all validation sets
-        self.criterion = nn.CrossEntropyLoss(reduction == "sum")
+        self.criterion = nn.CrossEntropyLoss(reduction = "sum")
 
     def forward(self, x):
         return self.encoder(x)
@@ -86,8 +86,8 @@ class Baseline(LightningModule):
         return opt
 
     def train_dataloader(self):
-        if self.hparams.dataset == "Imagenet-100":
-            train_dataset = utils.ImageNet100(
+        if self.hparams.dataset == "ImageNet100":
+            train_dataset = ImageNet100(
                 root=self.hparams.dataset_dir,
                 split = 'train',
                 transform = ImageNetDistortTrain(self.hparams)
@@ -99,8 +99,8 @@ class Baseline(LightningModule):
         return train_dataloader
 
     def val_dataloader(self):
-        if self.hparams.dataset == "Imagenet-100":
-            val_dataset = utils.ImageNet100(
+        if self.hparams.dataset == "ImageNet100":
+            val_dataset = ImageNet100(
                 root=self.hparams.dataset_dir,
                 split = 'val',
                 transform = ImageNetDistortVal(self.hparams)
@@ -114,8 +114,8 @@ class Baseline(LightningModule):
         return val_dataloader
 
     def test_dataloader(self):
-        if self.hparams.dataset == "Imagenet-100":
-            test_dataset = utils.ImageNet100(
+        if self.hparams.dataset == "ImageNet100":
+            test_dataset = ImageNet100(
                 root=self.hparams.dataset_dir,
                 split = 'val',
                 transform = ImageNetDistortVal(self.hparams)
@@ -223,16 +223,6 @@ def run_baseline():
     trainer.test(model) #run an entire validation epoch before starting 
     trainer.fit(model)
     trainer.test() #run one final validation epoch at the end - no arguments means pick best save
-
-    #copy everything back to $WORK
-    tmp_dir = '/tmp/Logs/Contrastive-Inversion'
-    dest_log_dir = '../Logs/Contrastive-Inversion'
-
-    utils.copy_logs(tmp_dir, dest_log_dir)
-
-    #Delete unnecessary stuff
-    #shutil.rmtree('/tmp/Logs') 
-    #shutil.rmtree('/tmp/ImageNet100')
 
 
 if __name__ == "__main__":
