@@ -411,18 +411,4 @@ def map_classes(og_classes, remap):
     new_classes = new_classes.type_as(og_classes)
 
     return new_classes
-
-def copy_logs(src_root, dest_root):
-    """
-    Function for copying saved logs from one spot to another.
-
-    Args:
-        src_root - root to look for folders to copy
-        dest_root - root to look for saving folders to 
-    """
-    for log_folder in os.listdir(src_root):
-        src_path = os.path.join(src_root, log_folder)
-
-        dest_path =  os.path.join(dest_root, log_folder)
-
-        shutil.copytree(src_path, dest_path)
+    

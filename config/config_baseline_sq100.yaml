@@ -31,7 +31,7 @@ pretrained: True
 #training
 max_epochs: 1
 lr: 0.001
-batch_size: 1 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,     
+batch_size: 1 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,      
 
 #logging
 log_save_interval: 1 #set this to be equal to num_epochs if row_log_interval is 1
