@@ -47,7 +47,7 @@ class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
         image_noisy = self.transform_noisy(image_orig) if self.transform_noisy is not None else image_orig
 
         if self.return_label_for_val:
-            return image_clean, image_noisy, labels
+            return image_clean, image_noisy, label
         else:
             return image_clean, image_noisy
 
@@ -119,7 +119,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         train_data, og_to_new_dict, text_labels = get_subset(train_data, filename=filename, return_class_labels=True)
         val_data, _ = get_subset(val_data, filename=filename)
 
-        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform(self.hparams), transform_noisy=self.train_set_transform)
+        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform(self.hparams), transform_noisy=self.train_set_transform, return_label_for_val=True)
         self.val_contrastive = ContrastiveUnsupervisedDataset(val_data, transform_clean=ImageNetBaseTransformVal(self.hparams), transform_noisy=self.val_set_transform, return_label_for_val=True)
         # Save mapping/labels to be reused.
         if self.hparams.save_mapping_and_text:
@@ -129,7 +129,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         return DataLoader(self.train_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
+        return DataLoader(self.train_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
 
 
 class NoisyCLIP(LightningModule):
@@ -183,7 +183,7 @@ class NoisyCLIP(LightningModule):
             loss = (part1 + part2)/2
 
         elif self.hparams.loss_type == 'mse':
-            return F.mse_loss(input1, input2)
+            return F.mse_loss(input2, input1)
 
         else:
             raise ValueError('Loss function not understood.')
@@ -232,7 +232,7 @@ class NoisyCLIP(LightningModule):
         #    else:
         #        raise NotImplementedError('Loss function not implemented yet.')
 
-        image_clean, image_noisy = train_batch
+        image_clean, image_noisy, _ = train_batch
         embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))
         embed_noisy = self.encode_noisy_image(image_noisy)
         loss = self.criterion(embed_clean, embed_noisy)
@@ -272,9 +272,16 @@ class NoisyCLIP(LightningModule):
 
         image_logits, _ = self.forward(images_noisy)
 
-        embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))
-        embed_noisy = self.encode_noisy_image(image_noisy)
-        loss = F.mse_loss(embed_clean, embed_noisy)
+        embed_clean = self.baseclip.encode_image(images_clean.type(torch.float32))
+        #embed_noisy = self.encode_noisy_image(images_noisy)
+        #print(embed_clean.max(dim=-1))
+        #print(embed_clean.min(dim=-1))
+        print(labels)
+        print((image_logits/self.logit_scale).max(dim=-1))
+        print((self.baseclip.forward(images_clean,clip.tokenize(self.text_list).to(self.device))[0]/self.baseclip.logit_scale.exp()).max(dim=-1))
+        exit(0)
+        
+        loss = F.mse_loss(embed_noisy, embed_clean, reduction='sum')
 
         top_1 = top_k_accuracy(image_logits, labels, k=1)
         top_5 = top_k_accuracy(image_logits, labels, k=5)
@@ -294,7 +301,8 @@ class NoisyCLIP(LightningModule):
         return output
 
     def validation_epoch_end(self, outputs):
-        val_loss_mean = torch.stack([x['Val_Results']['Val_Loss'] for x in outputs]).mean()
+        print([x['Val_Results']['Val_Loss'] for x in outputs])
+        val_loss_mean = torch.stack([x['Val_Results']['Val_Loss'] for x in outputs]).sum() /self.N_val
         top_1_mean = torch.stack([x['Val_Results']['Top_1'] for x in outputs]).sum() / self.N_val
         top_5_mean = torch.stack([x['Val_Results']['Top_5'] for x in outputs]).sum() / self.N_val
 
