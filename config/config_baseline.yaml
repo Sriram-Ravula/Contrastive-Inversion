@@ -28,6 +28,7 @@ percent_missing: 0.5 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR 
 
 #model - CHANGE BETWEEN RUNS
 encoder: "resnet" #'clip' or 'resnet'
+resnet_model: "50" #50 or 101
 clip_model: None #'ViT-B/32' or 'RN50' , only matters if encoder: "clip"
 pretrained: True
 
