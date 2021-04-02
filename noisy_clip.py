@@ -31,21 +31,25 @@ class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
     Each item of the dataset is a tuple of a clean image and a noisy image (two
     separate transformations.)
     """
-    def __init__(self, clean_dataset, transform_clean=None, transform_noisy=None):
+    def __init__(self, clean_dataset, transform_clean=None, transform_noisy=None, return_label=False):
         self.base = clean_dataset
         self.transform_clean = transform_clean
         self.transform_noisy = transform_noisy
+        self.return_label = return_label
 
     def __len__(self):
         return len(self.base)
 
     def __getitem__(self, idx):
-        image_orig, _ = self.base[idx]
+        image_orig, label = self.base[idx]
 
         image_clean = self.transform_clean(image_orig) if self.transform_clean is not None else image_orig
         image_noisy = self.transform_noisy(image_orig) if self.transform_noisy is not None else image_orig
 
-        return image_clean, image_noisy
+        if self.return_label:
+            return image_clean, image_noisy, label
+        else:
+            return image_clean, image_noisy
 
 class CIFAR10CLIPDataset(LightningDataModule):
     """
@@ -98,12 +102,12 @@ class ImageNetCLIPDataset(LightningDataModule):
         self.val_set_transform = ImageNetDistortVal(self.hparams)
 
     def setup(self, stage=None):
-        train_data = torchvision.datasets.ImageNet(
+        train_data = ImageNet100(
         	root=self.hparams.dataset_dir,
             split="train",
             transform=None
         )
-        val_data = torchvision.datasets.ImageNet(
+        self.val_data = ImageNet100(
             root=self.hparams.dataset_dir,
             split="val",
             transform=self.val_set_transform
@@ -112,14 +116,13 @@ class ImageNetCLIPDataset(LightningDataModule):
         filename = self.hparams.dataset_dir + self.hparams.subset_file_name
 
         # Get the subset, as well as its labels as text.
-        train_data, og_to_new_dict, text_labels = get_subset(train_data, filename=filename, return_class_labels=True)
-        self.val_data, _ = get_subset(val_data, filename=filename)
+        text_labels = train_data.idx_to_class.values()
 
-        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform(self.hparams), transform_noisy=self.train_set_transform)
+        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform(self.hparams), transform_noisy=self.train_set_transform, return_label=True)
 
-        # Save mapping/labels to be reused.
+        # Save labels to be reused.
         if self.hparams.save_mapping_and_text:
-            pickle.dump((og_to_new_dict, text_labels), open(self.hparams.mapping_and_text_file, 'wb'))
+            pickle.dump(text_labels, open(self.hparams.mapping_and_text_file, 'wb'))
 
     def train_dataloader(self):
         return DataLoader(self.train_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=True)
@@ -142,9 +145,9 @@ class NoisyCLIP(LightningModule):
         if self.hparams.dataset == "Imagenet-100":
             self.N_val = 5000 # Default ImageNet validation set, only 100 classes.
             if self.hparams.mapping_and_text_file is None:
-                raise ValueError('No file from which to read mapping/text labels was specified.')
+                raise ValueError('No file from which to read text labels was specified.')
 
-            og_to_new_dict, text_labels = pickle.load(open(self.hparams.mapping_and_text_file, 'rb'))
+            text_labels = pickle.load(open(self.hparams.mapping_and_text_file, 'rb'))
             self.class_map = og_to_new_dict
             self.text_list = ['A photo of '+label.strip().replace('_',' ') for label in text_labels]
         else:
@@ -217,48 +220,42 @@ class NoisyCLIP(LightningModule):
         return logits_per_image, logits_per_text
 
     def training_step(self, train_batch, batch_idx):
-        #if self.criterion is None:
-        #    if self.hparams.loss == 'contrastive':
-        #        self.criterion = ContrastiveLoss(self.hparams.tau, self.device)
-        #        self.baseclip = clip.load(self.hparams.baseclip_type, self.device, jit=False)[0]
-        #        self.baseclip.eval()
-        #        self.text_embeddings = self.baseclip.encode_text(clip.tokenize(text_list).to(self.device))
-        #        self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.device, jit=False)[0].visual
-        #        self.noisy_visual_encoder.train()
-        #    else:
-        #        raise NotImplementedError('Loss function not implemented yet.')
-
-        image_clean, image_noisy = train_batch
+        image_clean, image_noisy, labels = train_batch
         embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))
         embed_noisy = self.encode_noisy_image(image_noisy)
         loss = self.criterion(embed_clean, embed_noisy)
 
-        loss_dict = {"Train_Loss": loss}
+        image_logits, _ = self.forward(image_noisy)
+        top_1 = top_k_accuracy(image_logits, labels, k=1)
+        top_5 = top_k_accuracy(image_logits, labels, k=5)
+
+        loss_dict = {
+            'Train_Loss': loss,
+            'train_top_1': top_1,
+            'train_top_5': top_5,
+            'num_samples': image_clean.shape[0]
+        }
 
         output = {
             'loss': loss,
+            'Train_Results': loss_dict,
             'progress_bar': loss_dict,
             'log': loss_dict
         }
 
         return output
 
+    def training_epoch_end():
+        N_train = torch.stack([x['Train_Results']['num_samples'] for x in outputs]).sum()
+        top_1_mean = torch.stack([x['Train_Results']['train_top_1'] for x in outputs]).sum() / N_train
+        top_5_mean = torch.stack([x['Train_Results']['train_top_5'] for x in outputs]).sum() / N_train
+
+        self.log("train_top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
+        self.log("train_top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
+
     def validation_step(self, test_batch, batch_idx):
-        #if self.criterion is None:
-        #    if self.hparams.loss == 'contrastive':
-        #        self.criterion = ContrastiveLoss(self.hparams.tau, self.device)
-        #        self.baseclip = clip.load(self.hparams.baseclip_type, self.device, jit=False)[0]
-        #        self.baseclip.eval()
-        #        self.text_embeddings = self.baseclip.encode_text(clip.tokenize(text_list).to(self.device))
-        #        self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.device, jit=False)[0].visual
-        #        self.noisy_visual_encoder.train()
-        #    else:
-        #        raise NotImplementedError('Loss function not implemented yet.')
-
-
         images_noisy, labels = test_batch
         image_logits, _ = self.forward(images_noisy)
-        preds = torch.argmax(image_logits.softmax(dim=-1), axis=1)
 
         if self.hparams.dataset == "Imagenet-100":
             labels = map_classes(labels, self.class_map)
@@ -291,19 +288,10 @@ class NoisyCLIP(LightningModule):
         top_1_mean = torch.stack([x['Val_Results']['Top_1'] for x in outputs]).sum() / self.N_val
         top_5_mean = torch.stack([x['Val_Results']['Top_5'] for x in outputs]).sum() / self.N_val
 
-        loss_dict = {
-            'Val_loss': val_loss_mean,
-            'Top_1': top_1_mean,
-            'Top_5': top_5_mean
-        }
-
-        output = {
-            'Val_Loss': val_loss_mean,
-            'log': loss_dict,
-            'progress_bar': loss_dict
-        }
-
-        return output
+        self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True, sync_dist=True) #VAL_LOSS IS ACTUALLY (1 - TOP_5) FOR CHECKPOINTING
+        self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
+        self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
+        self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
 
 def run_noisy_clip():
     parser = argparse.ArgumentParser(description="NoisyCLIP")
@@ -325,9 +313,9 @@ def run_noisy_clip():
     trainer = Trainer.from_argparse_args(args)
 
     logger = TensorBoardLogger(
-        save_dir= os.getcwd(),
+        save_dir=args.logdir,
         version=args.experiment_name,
-        name='Logs'
+        name='NoisyCLIP_Logs'
     )
     trainer.logger = logger
 

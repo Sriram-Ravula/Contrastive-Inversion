@@ -196,11 +196,11 @@ class ImageNetDistortTrain:
             )
 
         if args.distortion == "squaremask":
-            distortion = SquareMask(length=args.length, offset="center", fixed = True)
+            distortion = SquareMask(length=args.length, offset="center", fixed = args.fixed_mask)
         elif args.distortion == "randommask":
-            distortion = RandomMask(percent_missing=args.percent_missing, fixed = True)
+            distortion = RandomMask(percent_missing=args.percent_missing, fixed = args.fixed_mask)
         elif args.distortion == "gaussiannoise":
-            distortion = GaussianNoise(std=args.std, fixed=True)
+            distortion = GaussianNoise(std=args.std, fixed=args.fixed_mask)
         elif args.distortion == "gaussianblur":
             distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
 
@@ -231,11 +231,11 @@ class ImageNetDistortVal:
             )
 
         if args.distortion == "squaremask":
-            distortion = SquareMask(length=args.length, offset="center", fixed = True)
+            distortion = SquareMask(length=args.length, offset="center", fixed = args.fixed_mask)
         elif args.distortion == "randommask":
-            distortion = RandomMask(percent_missing=args.percent_missing, fixed = True)
+            distortion = RandomMask(percent_missing=args.percent_missing, fixed = args.fixed_mask)
         elif args.distortion == "gaussiannoise":
-            distortion = GaussianNoise(std=args.std, fixed=True)
+            distortion = GaussianNoise(std=args.std, fixed=args.fixed_mask)
         elif args.distortion == "gaussianblur":
             distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
 
@@ -260,7 +260,7 @@ class ImageNet100(ImageFolder):
         root = os.path.expanduser(root)
         if split != 'train' and split != 'val':
             raise ValueError('Split should be train or val.')
-        
+
         #contains our desired {wnid: class} dictionary
         META_FILE = "meta.bin"
 
@@ -277,7 +277,7 @@ class ImageNet100(ImageFolder):
         #Load the {wnid: class_name} dictionary from meta.bin
         wnid_to_classes = torch.load(os.path.join(self.root, META_FILE))[0]
         self.wnids = self.classes #current self.classes is actually wnids!
-        self.wnid_to_idx = self.class_to_idx 
+        self.wnid_to_idx = self.class_to_idx
         self.classes = [wnid_to_classes[wnid] for wnid in self.wnids] #get the actual class names (e.g. "bird")
         self.class_to_idx = {cls: idx
                              for idx, clss in enumerate(self.classes)
