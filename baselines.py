@@ -12,6 +12,7 @@ import torchvision.models as models
 from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100
 import clip
 import numpy as np
+import shutil
 
 
 class CLIP_finetune(nn.Module):
@@ -202,11 +203,11 @@ class Baseline(LightningModule):
         self.log("test_top_1", top_1_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
         self.log("test_top_5", top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
 
-def run_baseline():
+def run_baseline(config_file):
     #Grab the argments
     parser = argparse.ArgumentParser(description="Contrastive-Inversion")
 
-    config = yaml_config_hook("./config/config_baseline_sq100.yaml")
+    config = yaml_config_hook("./config/" + config_file)
     for k, v in config.items():
         parser.add_argument(f"--{k}", default=v, type=type(v))
 
@@ -275,4 +276,18 @@ def run_baseline():
     trainer.fit(model)
 
 if __name__ == "__main__":
-    run_baseline()
+    configurations = [
+        "config_baseline_blur21.yaml",
+        "config_baseline_blur37.yaml",
+        "config_baseline_noise01.yaml",
+        "config_baseline_noise03.yaml",
+        "config_baseline_noise05.yaml",
+        "config_baseline_rand50.yaml",
+        "config_baseline_rand75.yaml",
+        "config_baseline_rand90.yaml",
+        "config_baseline_sq50.yaml",
+        "config_baseline_sq100.yaml"
+    ]
+
+    for config_file in configurations:
+        run_baseline(config_file)
