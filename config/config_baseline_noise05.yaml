@@ -15,11 +15,11 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "CLIP_RN50_SQ50"
+experiment_name: "CLIP_RN50_NOISE05"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
-distortion: "squaremask" #randommask or squaremask
-length: 50 #Only for squaremask
+distortion: "gaussiannoise" #randommask or squaremask
+std: 0.5
 fixed_mask: True
 
 #model - CHANGE BETWEEN RUNS
@@ -31,7 +31,7 @@ pretrained: True
 #training
 max_epochs: 25
 lr: 0.0001
-batch_size: 64 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,    
+batch_size: 64 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,      
 
 #logging
 log_save_interval: 1 #set this to be equal to num_epochs if row_log_interval is 1
