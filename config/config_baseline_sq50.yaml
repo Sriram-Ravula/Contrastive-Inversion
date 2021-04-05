@@ -2,10 +2,9 @@
 seed: 1234
 
 #data - SAME BETWEEN RUNS
-dataset_dir: "/tmp/Imagenet100/"
-dataset: "Imagenet-100"
+dataset_dir: "/tmp/ImageNet100/"
+dataset: "ImageNet100"
 num_classes: 100
-subset_file_name: "imagenet100.txt"
 
 #distributed training - SAME BETWEEN RUNS
 num_nodes: 1
@@ -16,26 +15,28 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "Resnet_sq50"
+experiment_name: "CLIP_RN50_SQ50"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "squaremask" #randommask or squaremask
 length: 50 #Only for squaremask
+fixed_mask: True
 
 #model - CHANGE BETWEEN RUNS
-encoder: "resnet" #'clip' or 'resnet'
-resnet_model: "50" #50 or 101
-clip_model: None #'ViT-B/32' or 'RN50' , only matters if encoder: "clip"
+encoder: "clip" #'clip' or 'resnet'
+#resnet_model: "50" #50 or 101
+clip_model: 'RN50' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if encoder: "clip"
 pretrained: True
 
 #training
-max_epochs: 200
-lr: 0.001
-batch_size: 100 #150 for clip resnet, 300 for clip Vit, 100 for resnet
+max_epochs: 30
+lr: 0.0001
+batch_size: 64 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,    
 
 #logging
-log_save_interval: 10 #set this to be equal to num_epochs if row_log_interval is 1
+log_save_interval: 1 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1  
+logdir: "/tmp/Logs"
 
 #validation
-check_val_every_n_epoch: 2 
+check_val_every_n_epoch: 30

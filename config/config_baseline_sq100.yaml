@@ -5,22 +5,22 @@ seed: 1234
 dataset_dir: "/tmp/ImageNet100/"
 dataset: "ImageNet100"
 num_classes: 100
-#subset_file_name: "imagenet100.txt"
 
 #distributed training - SAME BETWEEN RUNS
 num_nodes: 1
 gpus: 4
-workers: 4
+workers: 12
 distributed_backend: "ddp"
 
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "CLIP_Adamtest"
+experiment_name: "CLIP_RN50_SQ100"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "squaremask" #randommask or squaremask
-length: 50 #Only for squaremask
+length: 100 #Only for squaremask
+fixed_mask: True
 
 #model - CHANGE BETWEEN RUNS
 encoder: "clip" #'clip' or 'resnet'
@@ -29,7 +29,7 @@ clip_model: 'RN50' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if
 pretrained: True
 
 #training
-max_epochs: 3
+max_epochs: 30
 lr: 0.0001
 batch_size: 64 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,      
 
@@ -39,4 +39,4 @@ row_log_interval: 1
 logdir: "/tmp/Logs"
 
 #validation
-check_val_every_n_epoch: 3
+check_val_every_n_epoch: 30

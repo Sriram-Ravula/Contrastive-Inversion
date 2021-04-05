@@ -12,6 +12,7 @@ import torchvision.models as models
 from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100
 import clip
 import numpy as np
+import shutil
 
 
 class CLIP_finetune(nn.Module):
@@ -250,6 +251,9 @@ def run_baseline():
         if top_5 > top_5_best:
             top_5_best = top_5
             lr_best = lr
+
+        #after this round of hyperparameters, destroy the log file
+        shutil.rmtree(os.path.join(args.logdir, 'Contrastive-Inversion', args.experiment_name))
     
     print("BEST LR: ", lr_best)
     
