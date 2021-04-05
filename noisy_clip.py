@@ -100,7 +100,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         self.batch_size = self.hparams.batch_size
         self.train_set_transform = ImageNetDistortTrain(self.hparams)
         if self.hparams.fixed_mask:        
-            self.val_set_transform = ImageNetDistortVal(self.hparams, distortion=self.train_set_transform.distortion)
+            self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
         else:
             self.val_set_transform = ImageNetDistortVal(self.hparams)
 
