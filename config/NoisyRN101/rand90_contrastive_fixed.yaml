@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "resnet50_noisyclip_randommask_90"
+experiment_name: "Noisy_RN101_rand90_contrastive_fixed"
 
 num_nodes: 1
 gpus: 2
@@ -28,7 +28,7 @@ logdir: "/tmp"
 mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
 save_mapping_and_text: False
 
-batch_size: 128
+batch_size: 32
 
 workers: 12
 

@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "Noisy_RN101_sq50_contrastive_fixed"
+experiment_name: "Noisy_RN101_sq50_contrastive_nonfixed"
 
 num_nodes: 1
 gpus: 2
@@ -11,7 +11,7 @@ device: "cpu"
 loss_type: "simclr"
 
 distortion: "squaremask"
-fixed_mask: True
+fixed_mask: False
 length: 50
 
 lr: 0.0001

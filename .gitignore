@@ -5,6 +5,7 @@ __pycache__/
 
 #Logs
 Logs/
+Logs_*/
 
 # C extensions
 *.so

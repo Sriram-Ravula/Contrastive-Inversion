@@ -220,7 +220,7 @@ class ImageNetDistortVal:
     Torchvision composition of transforms to produce ImageNet images with a distortion.
     For validation, this class will always crop from the center of the image and NOT apply a random horizontal flip.
     """
-    def __init__(self, args):
+    def __init__(self, args, fixed_distortion=None):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
                 mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
@@ -230,7 +230,9 @@ class ImageNetDistortVal:
                 mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
             )
 
-        if args.distortion == "squaremask":
+        if fixed_distortion is not None:
+            distortion = fixed_distortion
+        elif args.distortion == "squaremask":
             distortion = SquareMask(length=args.length, offset="center", fixed = args.fixed_mask)
         elif args.distortion == "randommask":
             distortion = RandomMask(percent_missing=args.percent_missing, fixed = args.fixed_mask)

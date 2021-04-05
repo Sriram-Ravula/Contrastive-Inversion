@@ -99,7 +99,10 @@ class ImageNetCLIPDataset(LightningDataModule):
         self.dataset_dir = self.hparams.dataset_dir
         self.batch_size = self.hparams.batch_size
         self.train_set_transform = ImageNetDistortTrain(self.hparams)
-        self.val_set_transform = ImageNetDistortVal(self.hparams)
+        if self.hparams.fixed_mask:        
+            self.val_set_transform = ImageNetDistortVal(self.hparams, distortion=self.train_set_transform.distortion)
+        else:
+            self.val_set_transform = ImageNetDistortVal(self.hparams)
 
     def setup(self, stage=None):
         train_data = ImageNet100(
@@ -116,7 +119,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         filename = self.hparams.dataset_dir + self.hparams.subset_file_name
 
         # Get the subset, as well as its labels as text.
-        text_labels = train_data.idx_to_class.values()
+        text_labels = list(train_data.idx_to_class.values())
 
         self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform(self.hparams), transform_noisy=self.train_set_transform, return_label=True)
 
@@ -148,7 +151,6 @@ class NoisyCLIP(LightningModule):
                 raise ValueError('No file from which to read text labels was specified.')
 
             text_labels = pickle.load(open(self.hparams.mapping_and_text_file, 'rb'))
-            self.class_map = og_to_new_dict
             self.text_list = ['A photo of '+label.strip().replace('_',' ') for label in text_labels]
         else:
             raise NotImplementedError('Handling of the dataset not implemented yet.')
@@ -245,8 +247,8 @@ class NoisyCLIP(LightningModule):
 
         return output
 
-    def training_epoch_end():
-        N_train = torch.stack([x['Train_Results']['num_samples'] for x in outputs]).sum()
+    def training_epoch_end(self, outputs):
+        N_train = np.sum([x['Train_Results']['num_samples'] for x in outputs])
         top_1_mean = torch.stack([x['Train_Results']['train_top_1'] for x in outputs]).sum() / N_train
         top_5_mean = torch.stack([x['Train_Results']['train_top_5'] for x in outputs]).sum() / N_train
 
@@ -257,8 +259,8 @@ class NoisyCLIP(LightningModule):
         images_noisy, labels = test_batch
         image_logits, _ = self.forward(images_noisy)
 
-        if self.hparams.dataset == "Imagenet-100":
-            labels = map_classes(labels, self.class_map)
+        #if self.hparams.dataset == "Imagenet-100":
+        #    labels = map_classes(labels, self.class_map)
 
         if batch_idx == 0 and self.current_epoch < 20:
             self.logger.experiment.add_image('Val_Sample', img_grid(images_noisy), self.current_epoch)

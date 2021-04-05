@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "Noisy_RN101_sq50_contrastive_fixed"
+experiment_name: "Noisy_RN101_rand95_contrastive_fixed"
 
 num_nodes: 1
 gpus: 2
@@ -10,12 +10,12 @@ baseclip_type: "RN101"
 device: "cpu"
 loss_type: "simclr"
 
-distortion: "squaremask"
+distortion: "randommask"
 fixed_mask: True
-length: 50
+percent_missing: 0.95
 
 lr: 0.0001
-momentum: 0.5
+momentum: 0.3
 loss_tau: 0.1
 logit_scale: 0.07
 
@@ -26,7 +26,7 @@ subset_file_name: "imagenet100.txt"
 dataset_dir: "/tmp/imagenet100"
 logdir: "/tmp"
 mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
-save_mapping_and_text: True
+save_mapping_and_text: False
 
 batch_size: 32
 
@@ -35,8 +35,8 @@ workers: 12
 distributed_backend: "ddp"
 
 #training
-max_epochs: 25
-log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+max_epochs: 10
+log_save_interval: 10 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 sync_bn: True
 
