@@ -211,6 +211,7 @@ class ImageNetDistortTrain:
             distortion,
             normalize
         ])
+        self.distortion = distortion
 
     def __call__(self, x):
         return self.transform(x)
