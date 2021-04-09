@@ -63,6 +63,14 @@ class Baseline(LightningModule):
         #Here, we use a 100-class subset of ImageNet
         if self.hparams.dataset != "ImageNet100":
             raise ValueError("Unsupported dataset selected.")
+        else:
+            #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed! 
+            self.train_set_transform = ImageNetDistortTrain(self.hparams)
+        
+            if self.hparams.fixed_mask:        
+                self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
+            else:
+                self.val_set_transform = ImageNetDistortVal(self.hparams)
 
         #(2) Grab the correct baseline pre-trained model
         if self.hparams.encoder == 'resnet':
@@ -95,7 +103,7 @@ class Baseline(LightningModule):
             train_dataset = ImageNet100(
                 root=self.hparams.dataset_dir,
                 split = 'train',
-                transform = ImageNetDistortTrain(self.hparams)
+                transform = self.train_set_transform
             )
 
         train_dataloader = DataLoader(train_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
@@ -108,7 +116,7 @@ class Baseline(LightningModule):
             val_dataset = ImageNet100(
                 root=self.hparams.dataset_dir,
                 split = 'val',
-                transform = ImageNetDistortVal(self.hparams)
+                transform = self.val_set_transform
             )
 
         self.N_val = len(val_dataset)
@@ -123,7 +131,7 @@ class Baseline(LightningModule):
             test_dataset = ImageNet100(
                 root=self.hparams.dataset_dir,
                 split = 'val',
-                transform = ImageNetDistortVal(self.hparams)
+                transform = self.val_set_transform
             )
 
         self.N_test = len(test_dataset)
@@ -207,7 +215,7 @@ def run_baseline(config_file):
     #Grab the argments
     parser = argparse.ArgumentParser(description="Contrastive-Inversion")
 
-    config = yaml_config_hook("./config/" + config_file)
+    config = yaml_config_hook("./config/Supervised_CLIP_Baselines/" + config_file)
     for k, v in config.items():
         parser.add_argument(f"--{k}", default=v, type=type(v))
 
@@ -225,8 +233,11 @@ def run_baseline(config_file):
     top_5_best = 0
     lr_best = 1
 
+    lrs_tune = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+    #lrs_tune = [1e-1] #TODO remove this - only for testing
+
     #Tune learning rate for top 5 accuracy
-    for lr in [1e-2, 1e-3, 1e-4, 1e-5]:
+    for lr in lrs_tune:
         print(lr)
 
         seed_everything(args.seed)
@@ -275,19 +286,22 @@ def run_baseline(config_file):
 
     trainer.fit(model)
 
-if __name__ == "__main__":
+def main():
     configurations = [
-        "config_baseline_blur21.yaml",
-        "config_baseline_blur37.yaml",
-        "config_baseline_noise01.yaml",
-        "config_baseline_noise03.yaml",
-        "config_baseline_noise05.yaml",
-        "config_baseline_rand50.yaml",
-        "config_baseline_rand75.yaml",
-        "config_baseline_rand90.yaml",
-        "config_baseline_sq50.yaml",
-        "config_baseline_sq100.yaml"
+        "RN50_blur21.yaml"
+        #"RN50_blur37.yaml",
+        #"RN50_noise01.yaml",
+        #"RN50_noise03.yaml",
+        #"RN50_noise05.yaml"
+        #"RN50_rand50.yaml",
+        #"RN50_rand75.yaml",
+        #"RN50_rand90.yaml",
+        #"RN50_sq50.yaml",
+        #"RN50_sq100.yaml"
     ]
 
     for config_file in configurations:
         run_baseline(config_file)
+
+if __name__ == "__main__":
+    main()
