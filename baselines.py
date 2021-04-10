@@ -211,15 +211,12 @@ class Baseline(LightningModule):
         self.log("test_top_1", top_1_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
         self.log("test_top_5", top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
 
-def run_baseline(config_file):
-    #Grab the argments
-    parser = argparse.ArgumentParser(description="Contrastive-Inversion")
-
-    config = yaml_config_hook("./config/Supervised_CLIP_Baselines/" + config_file)
-    for k, v in config.items():
-        parser.add_argument(f"--{k}", default=v, type=type(v))
-
-    args = parser.parse_args()
+def search_and_run(config_file):
+    """
+    For now this is deprecated!
+    Causing some issues :(
+    """
+    args = grab_config(filename)
 
     #save the original epcosh and validation intervals to resotre after hyperparameter tuning
     orig_epochs = args.max_epochs
@@ -234,7 +231,6 @@ def run_baseline(config_file):
     lr_best = 1
 
     lrs_tune = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
-    #lrs_tune = [1e-1] #TODO remove this - only for testing
 
     #Tune learning rate for top 5 accuracy
     for lr in lrs_tune:
@@ -286,7 +282,69 @@ def run_baseline(config_file):
 
     trainer.fit(model)
 
+def run_baseline(config_file, lr):
+    args = grab_config(config_file)
+
+    args.lr = lr
+
+    model = Baseline(args)
+
+    trainer = Trainer.from_argparse_args(args)
+
+    logger = TensorBoardLogger(
+        save_dir= args.logdir,
+        version=args.experiment_name,
+        name='Contrastive-Inversion'
+    )
+    trainer.logger = logger
+
+    trainer.fit(model)
+
+def linesearch(config_file, lr):
+    args = grab_config(config_file)
+
+    #set these to be 1 for tuning
+    args.max_epochs = 1
+    args.check_val_every_n_epoch = 1
+    args.lr = lr
+
+    model = Baseline(args)
+
+    trainer = Trainer.from_argparse_args(args)
+
+    logger = TensorBoardLogger(
+        save_dir= args.logdir,
+        version=args.experiment_name,
+        name='Contrastive-Inversion'
+    )
+    trainer.logger = logger
+
+    trainer.fit(model)
+    
+    top_5 = trainer.logged_metrics["top_5"]
+
+    return top_5
+
+def grab_config(config_file):
+    """
+    Given a filename, grab the corresponsing config file and return it 
+    """
+    #Grab the argments
+    parser = argparse.ArgumentParser(description="Contrastive-Inversion")
+
+    config = yaml_config_hook("./config/Supervised_CLIP_Baselines/" + config_file)
+    for k, v in config.items():
+        parser.add_argument(f"--{k}", default=v, type=type(v))
+
+    args = parser.parse_args()
+
+    return args
+
 def main():
+    seed_everything(1234)
+
+    lrs_tune = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+
     configurations = [
         "RN50_blur21.yaml"
         #"RN50_blur37.yaml",
@@ -301,7 +359,23 @@ def main():
     ]
 
     for config_file in configurations:
-        run_baseline(config_file)
+        #track the best top_5 loss and corresponsing learning rate
+        top_5_best = 0
+        lr_best = 1
+
+        for lr in lrs_tune:
+            print("TESTING LR: ", lr)
+            top_5 = linesearch(config_file, lr)
+            print("TOP 5 ACC: ", top_5)
+
+            if top_5 > top_5_best:
+                print("NEW BEST ACC")
+                top_5_best = top_5
+                lr_best = lr
+        
+        print("BEST LR: ", lr_best)
+
+        run_baseline(config_file, lr)
 
 if __name__ == "__main__":
     main()

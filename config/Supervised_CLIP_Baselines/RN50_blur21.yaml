@@ -30,7 +30,7 @@ clip_model: 'RN50' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if
 pretrained: True
 
 #training
-max_epochs: 25
+max_epochs: 5
 lr: 0.0001
 batch_size: 64 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,      
 
@@ -40,4 +40,4 @@ row_log_interval: 1
 logdir: "/tmp/Logs"
 
 #validation
-check_val_every_n_epoch: 25
+check_val_every_n_epoch: 5
