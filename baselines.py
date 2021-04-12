@@ -13,6 +13,7 @@ from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTra
 import clip
 import numpy as np
 import shutil
+import sys
 
 
 class CLIP_finetune(nn.Module):
@@ -211,77 +212,6 @@ class Baseline(LightningModule):
         self.log("test_top_1", top_1_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
         self.log("test_top_5", top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
 
-def search_and_run(config_file):
-    """
-    For now this is deprecated!
-    Causing some issues :(
-    """
-    args = grab_config(filename)
-
-    #save the original epcosh and validation intervals to resotre after hyperparameter tuning
-    orig_epochs = args.max_epochs
-    orig_val = args.check_val_every_n_epoch
-
-    #set these to be 1 for tuning
-    args.max_epochs = 1
-    args.check_val_every_n_epoch = 1
-
-    #track the best top_5 loss and corresponsing learning rate
-    top_5_best = 0
-    lr_best = 1
-
-    lrs_tune = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
-
-    #Tune learning rate for top 5 accuracy
-    for lr in lrs_tune:
-        print(lr)
-
-        seed_everything(args.seed)
-
-        args.lr = lr
-
-        model = Baseline(args)
-
-        trainer = Trainer.from_argparse_args(args)
-
-        logger = TensorBoardLogger(
-            save_dir= args.logdir,
-            version=args.experiment_name,
-            name='Contrastive-Inversion'
-        )
-        trainer.logger = logger
-
-        trainer.fit(model)
-        
-        top_5 = trainer.logged_metrics["top_5"]
-        
-        if top_5 > top_5_best:
-            top_5_best = top_5
-            lr_best = lr
-    
-    print("BEST LR: ", lr_best)
-    
-    #Now run the actual good hyperparams
-    args.max_epochs = orig_epochs
-    args.check_val_every_n_epoch = orig_val
-
-    seed_everything(args.seed)
-
-    args.lr = lr_best
-
-    model = Baseline(args)
-
-    trainer = Trainer.from_argparse_args(args)
-
-    logger = TensorBoardLogger(
-        save_dir= args.logdir,
-        version=args.experiment_name,
-        name='Contrastive-Inversion'
-    )
-    trainer.logger = logger
-
-    trainer.fit(model)
-
 def run_baseline(config_file, lr):
     args = grab_config(config_file)
 
@@ -360,6 +290,8 @@ def main():
 
     for config_file in configurations:
         #track the best top_5 loss and corresponsing learning rate
+        print(config_file)
+
         top_5_best = 0
         lr_best = 1
 
@@ -375,7 +307,21 @@ def main():
         
         print("BEST LR: ", lr_best)
 
-        run_baseline(config_file, lr)
+        #run_baseline(config_file, lr)
+
+def main_2(args):
+    seed_everything(1234)
+
+    filename = str(args[0])
+    lr = float(args[1])
+
+    print(filename)
+    print(lr)
+
+    top_5 = linesearch(filename, lr)
+
+    print("TOP_5", top_5)
 
 if __name__ == "__main__":
     main()
+    #main_2(sys.argv[1:])
