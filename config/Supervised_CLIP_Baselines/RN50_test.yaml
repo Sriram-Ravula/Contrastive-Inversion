@@ -15,12 +15,10 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "CLIP_RN50_NOISE03"
+experiment_name: "RN50_TEST_CLEAN"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
-distortion: "gaussiannoise" #randommask or squaremask
-std: 0.3
-fixed_mask: True
+distortion: "None" #randommask or squaremask
 
 #model - CHANGE BETWEEN RUNS
 encoder: "resnet" #'clip' or 'resnet'
@@ -39,4 +37,4 @@ row_log_interval: 1
 logdir: "/tmp/Logs"
 
 #validation
-check_val_every_n_epoch: 25
+check_val_every_n_epoch: 1

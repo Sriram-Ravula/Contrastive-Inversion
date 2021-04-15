@@ -9,7 +9,7 @@ from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 import torchvision.models as models
-from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100
+from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100, ImageNetBaseTransform, ImageNetBaseTransformVal
 import clip
 import numpy as np
 import shutil
@@ -64,14 +64,14 @@ class Baseline(LightningModule):
         #Here, we use a 100-class subset of ImageNet
         if self.hparams.dataset != "ImageNet100":
             raise ValueError("Unsupported dataset selected.")
-        else:
-            #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed! 
-            self.train_set_transform = ImageNetDistortTrain(self.hparams)
+        # else:
+        #     #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed! 
+        #     self.train_set_transform = ImageNetDistortTrain(self.hparams)
         
-            if self.hparams.fixed_mask:        
-                self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
-            else:
-                self.val_set_transform = ImageNetDistortVal(self.hparams)
+        #     if self.hparams.fixed_mask:        
+        #         self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
+        #     else:
+        #         self.val_set_transform = ImageNetDistortVal(self.hparams)
 
         #(2) Grab the correct baseline pre-trained model
         if self.hparams.encoder == 'resnet':
@@ -101,11 +101,18 @@ class Baseline(LightningModule):
 
     def train_dataloader(self):
         if self.hparams.dataset == "ImageNet100":
-            train_dataset = ImageNet100(
-                root=self.hparams.dataset_dir,
-                split = 'train',
-                transform = self.train_set_transform
-            )
+            if self.hparams.distortion == "None":
+                train_dataset = ImageNet100(
+                    root=self.hparams.dataset_dir,
+                    split = 'train',
+                    transform = ImageNetBaseTransform(self.hparams)
+                )
+            else:
+                train_dataset = ImageNet100(
+                    root=self.hparams.dataset_dir,
+                    split = 'train',
+                    transform = self.train_set_transform
+                )
 
         train_dataloader = DataLoader(train_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
                                         pin_memory=True, shuffle=True)
@@ -114,11 +121,18 @@ class Baseline(LightningModule):
 
     def val_dataloader(self):
         if self.hparams.dataset == "ImageNet100":
-            val_dataset = ImageNet100(
-                root=self.hparams.dataset_dir,
-                split = 'val',
-                transform = self.val_set_transform
-            )
+            if self.hparams.distortion == "None":
+                val_dataset = ImageNet100(
+                    root=self.hparams.dataset_dir,
+                    split = 'val',
+                    transform = ImageNetBaseTransformVal(self.hparams)
+                )
+            else:
+                val_dataset = ImageNet100(
+                    root=self.hparams.dataset_dir,
+                    split = 'val',
+                    transform = self.val_set_transform
+                )
 
         self.N_val = len(val_dataset)
 
@@ -312,4 +326,4 @@ def main():
 
 if __name__ == "__main__":
 
-    run_baseline("RN50_blur21.yaml", 1e-4)
+    run_baseline("RN50_test.yaml", 1e-4)

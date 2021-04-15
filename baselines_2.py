@@ -312,4 +312,4 @@ def main():
 
 if __name__ == "__main__":
 
-    run_baseline("RN50_blur21.yaml", 1e-4)
+    run_baseline("RN50_noise01.yaml", 1e-4)
