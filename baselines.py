@@ -120,7 +120,7 @@ class Baseline(LightningModule):
                 transform = self.val_set_transform
             )
 
-        self.N_val = len(val_dataset)
+            self.N_val = 5000
 
         val_dataloader = DataLoader(val_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
                                         pin_memory=True, shuffle=False)
@@ -135,7 +135,7 @@ class Baseline(LightningModule):
                 transform = self.val_set_transform
             )
 
-        self.N_test = len(test_dataset)
+            self.N_test = 5000
 
         test_dataloader = DataLoader(test_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
                                         pin_memory=True, shuffle=False)

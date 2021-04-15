@@ -289,7 +289,7 @@ class ImageNet100(ImageFolder):
         #create a dictionary of UNIQUE {index: class values} where the class is the simplest form of the wnid (e.g. common name and not scientific name)
         self.idx_to_class = {idx: cls
                              for idx, clss in enumerate(self.classes)
-                             for i, cls in enumerate(clss) if i is 0}
+                             for i, cls in enumerate(clss) if i == 0}
 
 
 def img_grid(data):
@@ -344,7 +344,7 @@ def top_k_accuracy(input, targs, k=1):
     k - the k for the top-k values to take from input
 
     Returns:
-    top_k_accuracy - the top-k accuracy of inputs relative to targs
+    top_k_sum - The top-k sum of inputs relative to targs. To get accuracy, divide by the number of input samples
     """
     input = input.topk(k=k, dim=-1)[1]
     targs = targs.unsqueeze(dim=-1).expand_as(input)
