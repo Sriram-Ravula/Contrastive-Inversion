@@ -9,7 +9,7 @@ from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 import torchvision.models as models
-from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100
+from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100, ImageNetBaseTransformVal, ImageNetBaseTransformTrain
 import clip
 import numpy as np
 import shutil
@@ -47,6 +47,8 @@ class RESNET_finetune(nn.Module):
 
         self.encoder.fc = nn.Linear(self.encoder.fc.in_features, args.num_classes) 
 
+        self.encoder.train()
+
     def forward(self, x):
         return self.encoder(x)
 
@@ -65,13 +67,17 @@ class Baseline(LightningModule):
         if self.hparams.dataset != "ImageNet100":
             raise ValueError("Unsupported dataset selected.")
         else:
-            #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed! 
-            self.train_set_transform = ImageNetDistortTrain(self.hparams)
-        
-            if self.hparams.fixed_mask:        
-                self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
+            if self.hparams.distortion == "None":
+                self.train_set_transform = ImageNetBaseTransformVal(self.hparams)
+                self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
             else:
-                self.val_set_transform = ImageNetDistortVal(self.hparams)
+                #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed! 
+                self.train_set_transform = ImageNetDistortTrain(self.hparams)
+            
+                if self.hparams.fixed_mask:        
+                    self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
+                else:
+                    self.val_set_transform = ImageNetDistortVal(self.hparams)
 
         #(2) Grab the correct baseline pre-trained model
         if self.hparams.encoder == 'resnet':
@@ -97,7 +103,7 @@ class Baseline(LightningModule):
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=num_steps)
 
-        return [opt], [scheduler]
+        return [opt]#, [scheduler]
 
     def train_dataloader(self):
         if self.hparams.dataset == "ImageNet100":
@@ -126,21 +132,6 @@ class Baseline(LightningModule):
                                         pin_memory=True, shuffle=False)
 
         return val_dataloader
-
-    def test_dataloader(self):
-        if self.hparams.dataset == "ImageNet100":
-            test_dataset = ImageNet100(
-                root=self.hparams.dataset_dir,
-                split = 'val',
-                transform = self.val_set_transform
-            )
-
-            self.N_test = 5000
-
-        test_dataloader = DataLoader(test_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
-                                        pin_memory=True, shuffle=False)
-
-        return test_dataloader
     
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -158,6 +149,9 @@ class Baseline(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
+
+        if batch_idx == 0 and self.current_epoch == 0:
+            self.logger.experiment.add_image('Val_Sample', img_grid(x), self.current_epoch)
 
         logits = self.forward(x)
 
@@ -183,39 +177,13 @@ class Baseline(LightningModule):
         self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
         self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
 
-    def test_step(self, batch, batch_idx):
-        x, y = batch
-            
-        if batch_idx == 0:
-            self.logger.experiment.add_image('Test_Sample', img_grid(x), self.current_epoch)
-            
-        logits = self.forward(x)
-
-        loss = self.criterion(logits, y)
-        top_1 = top_k_accuracy(logits, y, k=1)
-        top_5 = top_k_accuracy(logits, y, k=5)
-
-        loss_dict = {
-            "test_ce_loss": loss,
-            "test_top_1": top_1,
-            "test_top_5": top_5
-        }
-
-        return loss_dict
-    
-    def test_epoch_end(self, outputs):
-        test_loss_mean = torch.stack([x['test_ce_loss'] for x in outputs]).sum() / self.N_test
-        top_1_mean = torch.stack([x['test_top_1'] for x in outputs]).sum() / self.N_test
-        top_5_mean = torch.stack([x['test_top_5'] for x in outputs]).sum() / self.N_test
-
-        self.log("test_ce_loss", test_loss_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
-        self.log("test_top_1", top_1_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
-        self.log("test_top_5", top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
-
-def run_baseline(config_file, lr):
+def run_baseline(config_file, lr=0):
     args = grab_config(config_file)
 
-    args.lr = lr
+    if lr == 0:
+        lr = args.lr
+    else:
+        args.lr = lr
 
     model = Baseline(args)
 
@@ -312,4 +280,4 @@ def main():
 
 if __name__ == "__main__":
 
-    run_baseline("RN50_blur21.yaml", 1e-4)
+    run_baseline("RN50_test.yaml", 1e-2)
