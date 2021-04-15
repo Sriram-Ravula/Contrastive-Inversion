@@ -232,21 +232,21 @@ class ImageNetDistortVal:
             )
 
         if fixed_distortion is not None:
-            distortion = fixed_distortion
+            self.distortion = fixed_distortion
         elif args.distortion == "squaremask":
-            distortion = SquareMask(length=args.length, offset="center", fixed = args.fixed_mask)
+            self.distortion = SquareMask(length=args.length, offset="center", fixed = args.fixed_mask)
         elif args.distortion == "randommask":
-            distortion = RandomMask(percent_missing=args.percent_missing, fixed = args.fixed_mask)
+            self.distortion = RandomMask(percent_missing=args.percent_missing, fixed = args.fixed_mask)
         elif args.distortion == "gaussiannoise":
-            distortion = GaussianNoise(std=args.std, fixed=args.fixed_mask)
+            self.distortion = GaussianNoise(std=args.std, fixed=args.fixed_mask)
         elif args.distortion == "gaussianblur":
-            distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
+            self.distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
 
         self.transform = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
-            distortion,
+            self.distortion,
             normalize
         ])
 
