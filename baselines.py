@@ -40,21 +40,41 @@ class RESNET_finetune(nn.Module):
     def __init__(self, args):
         super(RESNET_finetune, self).__init__()
 
+        self.args = args
+
+        #Grab the correct Resnet model
         if args.resnet_model == "50":
-            self.encoder = models.resnet50(pretrained=args.pretrained)
+            backbone = models.resnet50(pretrained=True)
         elif args.resnet_model == "101":
-            self.encoder = models.resnet101(pretrained=args.pretrained)
+            backbone = models.resnet101(pretrained=True)
 
-        self.encoder.train()
+        #grab the input dimension to the final layer
+        num_filters = backbone.fc.in_features
 
-        #Temporary! Freeze the feature extractor
-        for param in self.parameters():
-            param.requires_grad = False
+        #define the feature extraction module
+        layers = list(backbone.children())[:-1] #leave out the fc layer!
+        self.feature_extractor = nn.Sequential(*layers)
         
-        self.encoder.fc = nn.Linear(self.encoder.fc.in_features, args.num_classes) 
+        self.classifier = nn.Linear(num_filters, args.num_classes) 
+
+        #If we are only training the classifier, then freeze the backbone!
+        if args.freeze_backbone:
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
 
     def forward(self, x):
-        return self.encoder(x)
+        if self.args.freeze_backbone:
+            self.feature_extractor.eval()
+
+            with torch.no_grad():
+                features = self.feature_extractor(x).flatten(1)
+        
+        else:
+            features = self.feature_extractor(x).flatten(1)
+        
+        x = self.classifier(features)
+
+        return x
 
 
 class Baseline(LightningModule):
@@ -147,7 +167,7 @@ class Baseline(LightningModule):
 
         loss = self.criterion(logits, y)
 
-        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True, logger=True)
+        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True, logger=True, sync_dist=True)
 
         return loss
 
@@ -168,6 +188,10 @@ class Baseline(LightningModule):
             "top_1": top_1,
             "top_5": top_5
         }
+
+        #DEBUGGING CODE
+        print("TOP 1: ", top_1)
+        print("TOP 5: ", top_5)
 
         return loss_dict
     
