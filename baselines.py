@@ -9,7 +9,7 @@ from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 import torchvision.models as models
-from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100, ImageNetBaseTransformVal, ImageNetBaseTransformTrain
+from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100, ImageNetBaseTransformVal, ImageNetBaseTransform
 import clip
 import numpy as np
 import shutil
@@ -45,9 +45,13 @@ class RESNET_finetune(nn.Module):
         elif args.resnet_model == "101":
             self.encoder = models.resnet101(pretrained=args.pretrained)
 
-        self.encoder.fc = nn.Linear(self.encoder.fc.in_features, args.num_classes) 
-
         self.encoder.train()
+
+        #Temporary! Freeze the feature extractor
+        for param in self.parameters():
+            param.requires_grad = False
+        
+        self.encoder.fc = nn.Linear(self.encoder.fc.in_features, args.num_classes) 
 
     def forward(self, x):
         return self.encoder(x)
@@ -68,7 +72,7 @@ class Baseline(LightningModule):
             raise ValueError("Unsupported dataset selected.")
         else:
             if self.hparams.distortion == "None":
-                self.train_set_transform = ImageNetBaseTransformVal(self.hparams)
+                self.train_set_transform = ImageNetBaseTransform(self.hparams)
                 self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
             else:
                 #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed! 
@@ -94,16 +98,16 @@ class Baseline(LightningModule):
         return self.encoder(x)
     
     def configure_optimizers(self):
-        opt = torch.optim.Adam(self.encoder.parameters(), lr = self.lr)
+        opt = torch.optim.SGD(self.encoder.parameters(), lr = self.lr, momentum=0.3)
 
         if self.hparams.dataset == "ImageNet100":
-            num_steps = 126689//self.hparams.batch_size
+            num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus)
         else:
             num_steps = 100
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=num_steps)
 
-        return [opt]#, [scheduler]
+        return [opt], [scheduler]
 
     def train_dataloader(self):
         if self.hparams.dataset == "ImageNet100":
@@ -280,4 +284,4 @@ def main():
 
 if __name__ == "__main__":
 
-    run_baseline("RN50_test.yaml", 1e-2)
+    run_baseline("RN50_test.yaml", 1e-3)
