@@ -24,9 +24,9 @@ sigma: 9
 fixed_mask: True
 
 #model - CHANGE BETWEEN RUNS
-encoder: "clip" #'clip' or 'resnet'
-#resnet_model: "50" #50 or 101
-clip_model: 'RN50' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if encoder: "clip"
+encoder: "resnet" #'clip' or 'resnet'
+resnet_model: "50" #50 or 101
+#clip_model: 'RN50' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if encoder: "clip"
 pretrained: True
 
 #training
