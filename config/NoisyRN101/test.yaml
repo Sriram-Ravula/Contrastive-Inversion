@@ -1,0 +1,44 @@
+seed: 1234
+
+experiment_name: "Noisy_RN101_test"
+
+num_nodes: 1
+gpus: 1
+
+encoder: "clip"
+baseclip_type: "RN50"
+device: "cpu"
+loss_type: "simclr"
+
+distortion: "randommask"
+fixed_mask: True
+percent_missing: 0.5
+
+lr: 0.0001
+momentum: 0.5
+loss_tau: 0.1
+logit_scale: 0.07
+
+dataset: "Imagenet-100"
+num_classes: 100
+subset_file_name: "imagenet100.txt"
+
+dataset_dir: "/tmp/imagenet100"
+logdir: "/tmp"
+mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
+save_mapping_and_text: True
+
+batch_size: 64
+
+workers: 12
+
+#distributed_backend: "ddp"
+
+#training
+max_epochs: 2
+log_save_interval: 2 #set this to be equal to num_epochs if row_log_interval is 1
+row_log_interval: 1
+sync_bn: True
+
+#validation
+check_val_every_n_epoch: 1
