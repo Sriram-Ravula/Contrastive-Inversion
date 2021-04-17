@@ -98,8 +98,10 @@ class ImageNetCLIPDataset(LightningDataModule):
         # self.noise_transform = self.hparams.noise_transform
         self.dataset_dir = self.hparams.dataset_dir
         self.batch_size = self.hparams.batch_size
-        self.train_set_transform = ImageNetDistortTrain(self.hparams)
-        if self.hparams.fixed_mask:        
+
+        # NOTE: training now uses the same distortion as validation (no RandomResizedCrop/RandomHorizontalFlip)
+        self.train_set_transform = ImageNetDistortVal(self.hparams)
+        if self.hparams.fixed_mask:
             self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
         else:
             self.val_set_transform = ImageNetDistortVal(self.hparams)
@@ -221,46 +223,57 @@ class NoisyCLIP(LightningModule):
         # shape = [global_batch_size, global_batch_size]
         return logits_per_image, logits_per_text
 
+    # Training methods
     def training_step(self, train_batch, batch_idx):
         image_clean, image_noisy, labels = train_batch
         embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))
         embed_noisy = self.encode_noisy_image(image_noisy)
         loss = self.criterion(embed_clean, embed_noisy)
 
+        if batch_idx == 0 and self.current_epoch < 20:
+            self.logger.experiment.add_image('Train_Sample', img_grid(image_noisy), self.current_epoch)
+
         image_logits, _ = self.forward(image_noisy)
         top_1 = top_k_accuracy(image_logits, labels, k=1)
         top_5 = top_k_accuracy(image_logits, labels, k=5)
 
-        loss_dict = {
-            'Train_Loss': loss,
+        output = {
+            'train_loss': loss,
             'train_top_1': top_1,
             'train_top_5': top_5,
             'num_samples': image_clean.shape[0]
         }
 
-        output = {
-            'loss': loss,
-            'Train_Results': loss_dict,
-            'progress_bar': loss_dict,
-            'log': loss_dict
-        }
-
         return output
 
-    def training_epoch_end(self, outputs):
-        N_train = np.sum([x['Train_Results']['num_samples'] for x in outputs])
-        top_1_mean = torch.stack([x['Train_Results']['train_top_1'] for x in outputs]).sum() / N_train
-        top_5_mean = torch.stack([x['Train_Results']['train_top_5'] for x in outputs]).sum() / N_train
+    def training_step_end(self, outputs):
+        num_samples = np.sum([out['num_samples'] for out in outputs])
+        train_top_1 = np.sum([out['train_top_1'] for out in outputs])
+        train_top_5 = np.sum([out['train_top_5'] for out in outputs])
+        train_loss = np.sum([out['train_loss']/out['num_samples'] for out in outputs])/num_samples
 
+        full_output = {
+            'train_loss': train_loss,
+            'train_top_1': train_top_1,
+            'train_top_5': train_top_5,
+            'num_samples': num_samples
+        }
+        return full_output
+
+    def training_epoch_end(self, outputs):
+        N_train = np.sum([out['num_samples'] for out in outputs])
+        train_loss = np.sum([out['train_loss']/out['num_samples'] for out in outputs]) / N_train
+        top_1_mean = torch.stack([out['train_top_1'] for out in outputs]).sum() / N_train
+        top_5_mean = torch.stack([out['train_top_5'] for out in outputs]).sum() / N_train
+
+        self.lot("train_loss", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
         self.log("train_top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
         self.log("train_top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
 
+    # Validation methods
     def validation_step(self, test_batch, batch_idx):
         images_noisy, labels = test_batch
         image_logits, _ = self.forward(images_noisy)
-
-        #if self.hparams.dataset == "Imagenet-100":
-        #    labels = map_classes(labels, self.class_map)
 
         if batch_idx == 0 and self.current_epoch < 20:
             self.logger.experiment.add_image('Val_Sample', img_grid(images_noisy), self.current_epoch)
@@ -271,24 +284,36 @@ class NoisyCLIP(LightningModule):
         top_1 = top_k_accuracy(image_logits, labels, k=1)
         top_5 = top_k_accuracy(image_logits, labels, k=5)
 
-        loss_dict = {
-            "Val_Loss": loss,
-            "Top_1": top_1,
-            "Top_5": top_5
-        }
-
         output = {
-            'Val_Results': loss_dict,
-            'log': loss_dict,
-            'progress_bar': loss_dict
+            'val_loss': loss,
+            'val_top_1': top_1,
+            'val_top_5': top_5
         }
 
         return output
 
+    def validation_step_end(self, outputs):
+        num_samples = np.sum([out['num_samples'] for out in outputs])
+        val_top_1 = np.sum([out['val_top_1'] for out in outputs])
+        val_top_5 = np.sum([out['val_top_5'] for out in outputs])
+        val_loss = np.sum([out['val_loss']/out['num_samples'] for out in outputs])/num_samples
+
+        full_output = {
+            'val_loss': val_loss,
+            'val_top_1': val_top_1,
+            'val_top_5': val_top_5,
+            'num_samples': num_samples
+        }
+        return full_output
+
     def validation_epoch_end(self, outputs):
-        val_loss_mean = torch.stack([x['Val_Results']['Val_Loss'] for x in outputs]).mean()
-        top_1_mean = torch.stack([x['Val_Results']['Top_1'] for x in outputs]).sum() / self.N_val
-        top_5_mean = torch.stack([x['Val_Results']['Top_5'] for x in outputs]).sum() / self.N_val
+        N_val = np.sum([out['num_samples'] for out in outputs])
+        val_loss = np.sum([out['val_loss']/out['num_samples'] for out in outputs]) / N_val
+        top_1_mean = torch.stack([out['val_top_1'] for out in outputs]).sum() / N_val
+        top_5_mean = torch.stack([out['val_top_5'] for out in outputs]).sum() / N_val
+
+        # Debug assertion, if not then something went real bad somewhere
+        assert(N_val == self.N_val)
 
         self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True, sync_dist=True) #VAL_LOSS IS ACTUALLY (1 - TOP_5) FOR CHECKPOINTING
         self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
