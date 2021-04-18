@@ -21,6 +21,7 @@ from utils import *
 
 from pytorch_lightning import Trainer, LightningModule, LightningDataModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.metrics import Accuracy
 from torch.utils.data  import random_split, DataLoader
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
@@ -101,7 +102,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         self.batch_size = self.hparams.batch_size
 
         # NOTE: training now uses the same distortion as validation (no RandomResizedCrop/RandomHorizontalFlip)
-        self.train_set_transform = ImageNetDistortVal(self.hparams)
+        self.train_set_transform = ImageNetDistortTrain(self.hparams)
         if self.hparams.fixed_mask:
             self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
         else:
@@ -240,6 +241,7 @@ class NoisyCLIP(LightningModule):
             self.logger.experiment.add_image('Train_Sample', img_grid(image_noisy), self.current_epoch)
 
         image_logits, _ = self.forward(image_noisy)
+        image_logits = image_logits.float()
         image_probs = image_logits.softmax(dim=-1)
         # train_top_1 = self.train_top_1(image_probs, labels)
         # train_top_5 = self.train_top_5(image_probs, labels)
@@ -250,10 +252,10 @@ class NoisyCLIP(LightningModule):
         #     'train_top_5': top_5,
         #     'num_samples': image_clean.shape[0]
         # }
-        self.log('train_top_1', self.train_top_1(image_probs, labels), prog_bar=True, logger=True)
-        self.log('train_top_5', self.train_top_5(image_probs, labels), prog_bar=True, logger=True)
+        self.log('train_top_1_step', self.train_top_1(image_probs, labels), prog_bar=False, logger=False)
+        self.log('train_top_5_step', self.train_top_5(image_probs, labels), prog_bar=False, logger=False)
 
-        return output
+        return loss
 
     # def training_step_end(self, outputs):
     #     num_samples = np.sum([out['num_samples'] for out in outputs])
@@ -289,9 +291,10 @@ class NoisyCLIP(LightningModule):
             self.logger.experiment.add_image('Val_Sample', img_grid(images_noisy), self.current_epoch)
 
         image_logits, _ = self.forward(images_noisy)
+        image_logits = image_logits.float()
         image_probs = image_logits.softmax(dim=-1)
-        self.log('val_top_1', self.val_top_1(image_probs, labels), prog_bar=True, logger=True)
-        self.log('val_top_5', self.val_top_5(image_probs, labels), prog_bar=True, logger=True)
+        self.log('val_top_1_step', self.val_top_1(image_probs, labels), prog_bar=False, logger=False)
+        self.log('val_top_5_step', self.val_top_5(image_probs, labels), prog_bar=False, logger=False)
 
         # loss = torch.nn.CrossEntropyLoss()(image_logits, labels)
         # top_1 = top_k_accuracy(image_logits, labels, k=1)
@@ -345,6 +348,7 @@ def run_noisy_clip():
         parser.add_argument(f"--{k}", default=v, type=type(v))
 
     args = parser.parse_args()
+    args.plugins = DDPPlugin(find_unused_parameters=False)
 
     seed_everything(args.seed)
 
@@ -360,6 +364,7 @@ def run_noisy_clip():
         name='NoisyCLIP_Logs'
     )
     trainer.logger = logger
+    #trainer.plugins = DDPPlugin(find_unused_parameters=False)
 
     trainer.fit(model, dataset)
 

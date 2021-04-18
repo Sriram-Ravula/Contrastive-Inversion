@@ -3,7 +3,7 @@ seed: 1234
 experiment_name: "Noisy_RN101_test"
 
 num_nodes: 1
-gpus: 1
+gpus: 2
 
 encoder: "clip"
 baseclip_type: "RN50"
@@ -32,13 +32,14 @@ batch_size: 64
 
 workers: 12
 
-#distributed_backend: "ddp"
+distributed_backend: "ddp"
 
 #training
-max_epochs: 2
-log_save_interval: 2 #set this to be equal to num_epochs if row_log_interval is 1
+max_epochs: 5
+log_save_interval: 5 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 sync_bn: True
+plugins: DDPPlugin(find_unused_parameters=False)
 
 #validation
 check_val_every_n_epoch: 1
