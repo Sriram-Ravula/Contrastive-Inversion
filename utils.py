@@ -196,7 +196,7 @@ class ImageNetDistortTrain:
             )
 
         if args.distortion == "squaremask":
-            distortion = SquareMask(length=args.length, offset="center", fixed = args.fixed_mask)
+            distortion = SquareMask(length=args.length, offset=args.offset, fixed = args.fixed_mask)
         elif args.distortion == "randommask":
             distortion = RandomMask(percent_missing=args.percent_missing, fixed = args.fixed_mask)
         elif args.distortion == "gaussiannoise":
@@ -234,7 +234,7 @@ class ImageNetDistortVal:
         if fixed_distortion is not None:
             distortion = fixed_distortion
         elif args.distortion == "squaremask":
-            distortion = SquareMask(length=args.length, offset="center", fixed = args.fixed_mask)
+            distortion = SquareMask(length=args.length, offset=args.offset, fixed = args.fixed_mask)
         elif args.distortion == "randommask":
             distortion = RandomMask(percent_missing=args.percent_missing, fixed = args.fixed_mask)
         elif args.distortion == "gaussiannoise":

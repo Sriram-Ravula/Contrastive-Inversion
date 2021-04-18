@@ -1,19 +1,18 @@
 seed: 1234
 
-experiment_name: "Noisy_RN101_sq50_contrastive_fixed"
+experiment_name: "Noisy_RN101_test"
 
 num_nodes: 1
 gpus: 2
 
 encoder: "clip"
-baseclip_type: "RN101"
+baseclip_type: "RN50"
 device: "cpu"
 loss_type: "simclr"
 
-distortion: "squaremask"
+distortion: "randommask"
 fixed_mask: True
-length: 50
-offset: "random"
+percent_missing: 0.5
 
 lr: 0.0001
 momentum: 0.5
@@ -29,17 +28,18 @@ logdir: "/tmp"
 mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
 save_mapping_and_text: True
 
-batch_size: 32
+batch_size: 64
 
 workers: 12
 
 distributed_backend: "ddp"
 
 #training
-max_epochs: 25
-log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+max_epochs: 5
+log_save_interval: 5 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 sync_bn: True
+plugins: DDPPlugin(find_unused_parameters=False)
 
 #validation
 check_val_every_n_epoch: 1

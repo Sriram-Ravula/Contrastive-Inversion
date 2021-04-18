@@ -13,6 +13,7 @@ loss_type: "simclr"
 distortion: "squaremask"
 fixed_mask: True
 length: 100
+offset: "random"
 
 lr: 0.0001
 momentum: 0.5
