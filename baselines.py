@@ -118,12 +118,12 @@ class Baseline(LightningModule):
         return self.encoder(x)
     
     def configure_optimizers(self):
-        opt = torch.optim.SGD(self.encoder.parameters(), lr = self.lr, momentum=0.3)
+        opt = torch.optim.Adam(self.encoder.parameters(), lr = self.lr)
 
         if self.hparams.dataset == "ImageNet100":
-            num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus)
+            num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus) #divide N_train by number of distributed iters
         else:
-            num_steps = 100
+            num_steps = 500
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=num_steps)
 
@@ -167,7 +167,7 @@ class Baseline(LightningModule):
 
         loss = self.criterion(logits, y)
 
-        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True, logger=True, sync_dist=True)
+        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
 
         return loss
 
@@ -189,10 +189,6 @@ class Baseline(LightningModule):
             "top_5": top_5
         }
 
-        #DEBUGGING CODE
-        print("TOP 1: ", top_1)
-        print("TOP 5: ", top_5)
-
         return loss_dict
     
     def validation_epoch_end(self, outputs):
@@ -200,18 +196,20 @@ class Baseline(LightningModule):
         top_1_mean = torch.stack([x['top_1'] for x in outputs]).sum() / self.N_val
         top_5_mean = torch.stack([x['top_5'] for x in outputs]).sum() / self.N_val
 
-        self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True, sync_dist=True) #VAL_LOSS IS ACTUALLY (1 - TOP_5)
-        self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
-        self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
-        self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
+        self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum') #VAL_LOSS IS ACTUALLY (1 - TOP_5)
+        self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
+        self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
+        self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
 
-def run_baseline(config_file, lr=0):
+def run_baseline(config_file, lr = 0):
     args = grab_config(config_file)
 
     if lr == 0:
         lr = args.lr
     else:
         args.lr = lr
+    
+    seed_everything(args.seed)
 
     model = Baseline(args)
 
@@ -308,4 +306,4 @@ def main():
 
 if __name__ == "__main__":
 
-    run_baseline("RN50_test.yaml", 1e-3)
+    run_baseline("RN50_test.yaml")
