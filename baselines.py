@@ -8,11 +8,14 @@ import pytorch_lightning as pl
 from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.plugins import DDPPlugin
+from pytorch_lightning.metrics import Accuracy
 import torchvision.models as models
 from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100, ImageNetBaseTransformVal, ImageNetBaseTransform
 import clip
 import numpy as np
 import shutil
+
 
 class CLIP_finetune(nn.Module):
     def __init__(self, args):
@@ -114,6 +117,11 @@ class Baseline(LightningModule):
         #(3) Set up our criterion - here we use reduction as "sum" so that we are able to average over all validation sets
         self.criterion = nn.CrossEntropyLoss(reduction = "sum")
 
+        self.train_top_1 = Accuracy(top_k=1)
+        self.train_top_5 = Accuracy(top_k=5)
+        self.val_top_1 = Accuracy(top_k=1)
+        self.val_top_5 = Accuracy(top_k=5)
+
     def forward(self, x):
         return self.encoder(x)
     
@@ -164,12 +172,19 @@ class Baseline(LightningModule):
             self.logger.experiment.add_image('Train_Sample', img_grid(x), self.current_epoch)
 
         logits = self.forward(x)
+        pred_probs = logits.softmax(dim=-1)
 
         loss = self.criterion(logits, y)
 
         self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
+        self.log("train_top_1", self.train_top_1(pred_probs, y), prog_bar=False, logger=False)
+        self.log("train_top_5", self.train_top_5(pred_probs, y), prog_bar=False, logger=False)
 
         return loss
+    
+    def training_epoch_end(self, outputs):
+        self.log("train_top_1", self.train_top_1.compute(), prog_bar=True, logger=True)
+        self.log("train_top_5", self.train_top_5.compute(), prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
@@ -178,28 +193,35 @@ class Baseline(LightningModule):
             self.logger.experiment.add_image('Val_Sample', img_grid(x), self.current_epoch)
 
         logits = self.forward(x)
+        pred_probs = logits.softmax(dim=-1)
 
-        loss = self.criterion(logits, y)
-        top_1 = top_k_accuracy(logits, y, k=1)
-        top_5 = top_k_accuracy(logits, y, k=5)
+        self.log("val_top_1", self.val_top_1(pred_probs, y), prog_bar=False, logger=False)
+        self.log("val_top_5", self.val_top_5(pred_probs, y), prog_bar=False, logger=False)
 
-        loss_dict = {
-            "val_ce_loss": loss,
-            "top_1": top_1,
-            "top_5": top_5
-        }
+        # loss = self.criterion(logits, y)
+        # top_1 = top_k_accuracy(logits, y, k=1)
+        # top_5 = top_k_accuracy(logits, y, k=5)
 
-        return loss_dict
+        # loss_dict = {
+        #     "val_ce_loss": loss,
+        #     "top_1": top_1,
+        #     "top_5": top_5
+        # }
+
+        # return loss_dict
     
     def validation_epoch_end(self, outputs):
-        val_loss_mean = torch.stack([x['val_ce_loss'] for x in outputs]).sum() / self.N_val
-        top_1_mean = torch.stack([x['top_1'] for x in outputs]).sum() / self.N_val
-        top_5_mean = torch.stack([x['top_5'] for x in outputs]).sum() / self.N_val
+        # val_loss_mean = torch.stack([x['val_ce_loss'] for x in outputs]).sum() / self.N_val
+        # top_1_mean = torch.stack([x['top_1'] for x in outputs]).sum() / self.N_val
+        # top_5_mean = torch.stack([x['top_5'] for x in outputs]).sum() / self.N_val
 
-        self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum') #VAL_LOSS IS ACTUALLY (1 - TOP_5)
-        self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
-        self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
-        self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
+        # self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum') #VAL_LOSS IS ACTUALLY (1 - TOP_5)
+        # self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
+        # self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
+        # self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
+
+        self.log("val_top_1", self.val_top_1.compute(), prog_bar=True, logger=True)
+        self.log("val_top_5", self.val_top_5.compute(), prog_bar=True, logger=True)
 
 def run_baseline(config_file, lr = 0):
     args = grab_config(config_file)
@@ -213,17 +235,36 @@ def run_baseline(config_file, lr = 0):
 
     model = Baseline(args)
 
-    trainer = Trainer.from_argparse_args(args)
-
     logger = TensorBoardLogger(
         save_dir= args.logdir,
         version=args.experiment_name,
         name='Contrastive-Inversion'
     )
-    trainer.logger = logger
+    trainer = Trainer.from_argparse_args(args, plugins=DDPPlugin(find_unused_parameters=False), logger=logger)      
 
     trainer.fit(model)
 
+def grab_config(config_file):
+    """
+    Given a filename, grab the corresponsing config file and return it 
+    """
+    #Grab the argments
+    parser = argparse.ArgumentParser(description="Contrastive-Inversion")
+
+    config = yaml_config_hook("./config/Supervised_CLIP_Baselines/" + config_file)
+
+    for k, v in config.items():
+        parser.add_argument(f"--{k}", default=v, type=type(v))
+
+    args = parser.parse_args()
+
+    return args
+
+if __name__ == "__main__":
+
+    run_baseline("RN50_test.yaml")
+
+"""
 def linesearch(config_file, lr):
     args = grab_config(config_file)
 
@@ -248,22 +289,6 @@ def linesearch(config_file, lr):
     top_5 = trainer.logged_metrics["top_5"]
 
     return top_5
-
-def grab_config(config_file):
-    """
-    Given a filename, grab the corresponsing config file and return it 
-    """
-    #Grab the argments
-    parser = argparse.ArgumentParser(description="Contrastive-Inversion")
-
-    config = yaml_config_hook("./config/Supervised_CLIP_Baselines/" + config_file)
-
-    for k, v in config.items():
-        parser.add_argument(f"--{k}", default=v, type=type(v))
-
-    args = parser.parse_args()
-
-    return args
 
 def main():
     seed_everything(1234)
@@ -303,7 +328,4 @@ def main():
         print("BEST LR: ", lr_best)
 
         run_baseline(config_file, lr)
-
-if __name__ == "__main__":
-
-    run_baseline("RN50_test.yaml")
+"""
