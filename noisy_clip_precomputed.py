@@ -33,21 +33,21 @@ class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
     Each item of the dataset is a tuple of a clean image and a noisy image (two
     separate transformations.)
     """
-    def __init__(self, clean_dataset, transform_contrastive=None, return_label=False):
-        self.base = clean_dataset
-        self.transform_contrastive = transform_contrastive
+    def __init__(self, noisy_dataset, embeddings_file, return_label=False):
+        self.dataset = noisy_dataset
+        self.embeddings = pickle.load(open(embeddings_file,'rb'))
         self.return_label = return_label
 
     def __len__(self):
-        return len(self.base)
+        return len(self.dataset)
 
     def __getitem__(self, idx):
-        image_orig, label = self.base[idx]
-        image_clean, image_noisy = self.transform_contrastive(image_orig) if self.transform_contrastive is not None else (image_orig, image_orig)
+        image_noisy, label = self.dataset[idx]
+        embed_clean = ToTensor(self.embeddings[idx])
         if self.return_label:
-            return image_clean, image_noisy, label
+            return embed_clean, image_noisy, label
         else:
-            return image_clean, image_noisy
+            return embed_clean, image_noisy
 
 class CIFAR10CLIPDataset(LightningDataModule):
     """
@@ -98,7 +98,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         self.batch_size = self.hparams.batch_size
 
         # NOTE: training now uses the same distortion as validation (no RandomResizedCrop/RandomHorizontalFlip)
-        self.train_set_transform = ImageNetDistortTrainContrastive(self.hparams)
+        self.train_set_transform = ImageNetDistortTrain(self.hparams)
         if self.hparams.fixed_mask:
             self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
         else:
@@ -108,7 +108,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         train_data = ImageNet100(
         	root=self.hparams.dataset_dir,
             split="train",
-            transform=None
+            transform=self.train_set_transform
         )
         self.val_data = ImageNet100(
             root=self.hparams.dataset_dir,
@@ -121,7 +121,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         # Get the subset, as well as its labels as text.
         text_labels = list(train_data.idx_to_class.values())
 
-        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform(self.hparams), transform_contrastive=self.train_set_transform, return_label=True)
+        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, embeddings_file=self.hparams.embeddings_file, return_label=True)
 
         # Save labels to be reused.
         if self.hparams.save_mapping_and_text:
@@ -158,9 +158,9 @@ class NoisyCLIP(LightningModule):
         #self.criterion = None
         #self.criterion = ContrastiveLoss(tau=self.hparams.loss_tau, device=self.hparams.device)
         self.logit_scale = self.hparams.logit_scale
-        self.baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0]
-        self.baseclip.eval()
-        self.baseclip.requires_grad_(False)
+        # self.baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0]
+        # self.baseclip.eval()
+        # self.baseclip.requires_grad_(False)
         # self.text_embeddings = self.baseclip.encode_text(clip.tokenize(text_list).to(self.hparams.device))
         self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0].visual
         self.noisy_visual_encoder.train()
@@ -234,8 +234,8 @@ class NoisyCLIP(LightningModule):
 
     # Training methods
     def training_step(self, train_batch, batch_idx):
-        image_clean, image_noisy, labels = train_batch
-        embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))
+        embed_clean, image_noisy, labels = train_batch
+        #embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))
         embed_noisy = self.encode_noisy_image(image_noisy)
         loss = self.criterion(embed_clean, embed_noisy)
 
