@@ -39,7 +39,6 @@ max_epochs: 5
 log_save_interval: 5 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 sync_bn: True
-plugins: DDPPlugin(find_unused_parameters=False)
 
 #validation
 check_val_every_n_epoch: 1
