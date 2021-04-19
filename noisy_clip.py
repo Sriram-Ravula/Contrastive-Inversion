@@ -33,10 +33,9 @@ class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
     Each item of the dataset is a tuple of a clean image and a noisy image (two
     separate transformations.)
     """
-    def __init__(self, clean_dataset, transform_clean=None, transform_noisy=None, return_label=False):
+    def __init__(self, clean_dataset, transform_contrastive=None, return_label=False):
         self.base = clean_dataset
-        self.transform_clean = transform_clean
-        self.transform_noisy = transform_noisy
+        self.transform_contrastive = transform_contrastive
         self.return_label = return_label
 
     def __len__(self):
@@ -44,10 +43,7 @@ class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         image_orig, label = self.base[idx]
-
-        image_clean = self.transform_clean(image_orig) if self.transform_clean is not None else image_orig
-        image_noisy = self.transform_noisy(image_orig) if self.transform_noisy is not None else image_orig
-
+        image_clean, image_noisy = self.transform_contrastive(image_orig) if self.transform_contrastive is not None else (image_orig, image_orig)
         if self.return_label:
             return image_clean, image_noisy, label
         else:
@@ -102,7 +98,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         self.batch_size = self.hparams.batch_size
 
         # NOTE: training now uses the same distortion as validation (no RandomResizedCrop/RandomHorizontalFlip)
-        self.train_set_transform = ImageNetDistortTrain(self.hparams)
+        self.train_set_transform = ImageNetDistortTrainContrastive(self.hparams)
         if self.hparams.fixed_mask:
             self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
         else:
@@ -125,7 +121,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         # Get the subset, as well as its labels as text.
         text_labels = list(train_data.idx_to_class.values())
 
-        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform(self.hparams), transform_noisy=self.train_set_transform, return_label=True)
+        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform(self.hparams), transform_contrastive=self.train_set_transform, return_label=True)
 
         # Save labels to be reused.
         if self.hparams.save_mapping_and_text:
