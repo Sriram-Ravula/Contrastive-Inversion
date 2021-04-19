@@ -187,7 +187,13 @@ class NoisyCLIP(LightningModule):
             part1 = torch.sum(torch.diag(logmat, diagonal=1)[np.arange(0,2*bsz,2)])
             part2 = torch.sum(torch.diag(logmat, diagonal=-1)[np.arange(0,2*bsz,2)])
             loss = (part1 + part2)/2
-
+        elif self.hparams.loss_type == 'clip':
+            tensor1 = input1 / input1.norm(dim=-1, keepdim=True)
+            tensor2 = input2 / input2.norm(dim=-1, keepdim=True)
+            sim_mat = (1/self.hparams.loss_tau)*tensor1 @ tensor2.t()
+            part1 = F.cross_entropy(sim_mat, torch.LongTensor(np.arange(bsz)).to(self.device))
+            part2 = F.cross_entropy(sim_mat.t(), torch.LongTensor(np.arange(bsz)).to(self.device))
+            loss = (part1+part2)/2
         elif self.hparams.loss_type == 'mse':
             return F.mse_loss(input2, input1)
 
@@ -344,7 +350,7 @@ def run_noisy_clip():
         parser.add_argument(f"--{k}", default=v, type=type(v))
 
     args = parser.parse_args()
-    args.plugins = DDPPlugin(find_unused_parameters=False)
+    #args.plugins = DDPPlugin(find_unused_parameters=False)
 
     seed_everything(args.seed)
 
@@ -360,7 +366,6 @@ def run_noisy_clip():
         name='NoisyCLIP_Logs'
     )
     trainer.logger = logger
-    #trainer.plugins = DDPPlugin(find_unused_parameters=False)
 
     trainer.fit(model, dataset)
 

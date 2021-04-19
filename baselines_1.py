@@ -8,11 +8,14 @@ import pytorch_lightning as pl
 from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.plugins import DDPPlugin
+from pytorch_lightning.metrics import Accuracy
 import torchvision.models as models
-from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100, ImageNetBaseTransform, ImageNetBaseTransformVal
+from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100, ImageNetBaseTransformVal, ImageNetBaseTransform
 import clip
 import numpy as np
 import shutil
+
 
 class CLIP_finetune(nn.Module):
     def __init__(self, args):
@@ -40,15 +43,41 @@ class RESNET_finetune(nn.Module):
     def __init__(self, args):
         super(RESNET_finetune, self).__init__()
 
-        if args.resnet_model == "50":
-            self.encoder = models.resnet50(pretrained=args.pretrained)
-        elif args.resnet_model == "101":
-            self.encoder = models.resnet101(pretrained=args.pretrained)
+        self.args = args
 
-        self.encoder.fc = nn.Linear(self.encoder.fc.in_features, args.num_classes) 
+        #Grab the correct Resnet model
+        if args.resnet_model == "50":
+            backbone = models.resnet50(pretrained=True)
+        elif args.resnet_model == "101":
+            backbone = models.resnet101(pretrained=True)
+
+        #grab the input dimension to the final layer
+        num_filters = backbone.fc.in_features
+
+        #define the feature extraction module
+        layers = list(backbone.children())[:-1] #leave out the fc layer!
+        self.feature_extractor = nn.Sequential(*layers)
+        
+        self.classifier = nn.Linear(num_filters, args.num_classes) 
+
+        #If we are only training the classifier, then freeze the backbone!
+        if args.freeze_backbone:
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
 
     def forward(self, x):
-        return self.encoder(x)
+        if self.args.freeze_backbone:
+            self.feature_extractor.eval()
+
+            with torch.no_grad():
+                features = self.feature_extractor(x).flatten(1)
+        
+        else:
+            features = self.feature_extractor(x).flatten(1)
+        
+        x = self.classifier(features)
+
+        return x
 
 
 class Baseline(LightningModule):
@@ -64,14 +93,18 @@ class Baseline(LightningModule):
         #Here, we use a 100-class subset of ImageNet
         if self.hparams.dataset != "ImageNet100":
             raise ValueError("Unsupported dataset selected.")
-        # else:
-        #     #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed! 
-        #     self.train_set_transform = ImageNetDistortTrain(self.hparams)
-        
-        #     if self.hparams.fixed_mask:        
-        #         self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
-        #     else:
-        #         self.val_set_transform = ImageNetDistortVal(self.hparams)
+        else:
+            if self.hparams.distortion == "None":
+                self.train_set_transform = ImageNetBaseTransform(self.hparams)
+                self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
+            else:
+                #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed! 
+                self.train_set_transform = ImageNetDistortTrain(self.hparams)
+            
+                if self.hparams.fixed_mask:        
+                    self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
+                else:
+                    self.val_set_transform = ImageNetDistortVal(self.hparams)
 
         #(2) Grab the correct baseline pre-trained model
         if self.hparams.encoder == 'resnet':
@@ -84,6 +117,11 @@ class Baseline(LightningModule):
         #(3) Set up our criterion - here we use reduction as "sum" so that we are able to average over all validation sets
         self.criterion = nn.CrossEntropyLoss(reduction = "sum")
 
+        self.train_top_1 = Accuracy(top_k=1)
+        self.train_top_5 = Accuracy(top_k=5)
+        self.val_top_1 = Accuracy(top_k=1)
+        self.val_top_5 = Accuracy(top_k=5)
+
     def forward(self, x):
         return self.encoder(x)
     
@@ -91,9 +129,9 @@ class Baseline(LightningModule):
         opt = torch.optim.Adam(self.encoder.parameters(), lr = self.lr)
 
         if self.hparams.dataset == "ImageNet100":
-            num_steps = 126689//self.hparams.batch_size
+            num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus) #divide N_train by number of distributed iters
         else:
-            num_steps = 100
+            num_steps = 500
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=num_steps)
 
@@ -101,18 +139,11 @@ class Baseline(LightningModule):
 
     def train_dataloader(self):
         if self.hparams.dataset == "ImageNet100":
-            if self.hparams.distortion == "None":
-                train_dataset = ImageNet100(
-                    root=self.hparams.dataset_dir,
-                    split = 'train',
-                    transform = ImageNetBaseTransform(self.hparams)
-                )
-            else:
-                train_dataset = ImageNet100(
-                    root=self.hparams.dataset_dir,
-                    split = 'train',
-                    transform = self.train_set_transform
-                )
+            train_dataset = ImageNet100(
+                root=self.hparams.dataset_dir,
+                split = 'train',
+                transform = self.train_set_transform
+            )
 
         train_dataloader = DataLoader(train_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
                                         pin_memory=True, shuffle=True)
@@ -121,40 +152,18 @@ class Baseline(LightningModule):
 
     def val_dataloader(self):
         if self.hparams.dataset == "ImageNet100":
-            if self.hparams.distortion == "None":
-                val_dataset = ImageNet100(
-                    root=self.hparams.dataset_dir,
-                    split = 'val',
-                    transform = ImageNetBaseTransformVal(self.hparams)
-                )
-            else:
-                val_dataset = ImageNet100(
-                    root=self.hparams.dataset_dir,
-                    split = 'val',
-                    transform = self.val_set_transform
-                )
-
-        self.N_val = len(val_dataset)
-
-        val_dataloader = DataLoader(val_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
-                                        pin_memory=True, shuffle=False)
-
-        return val_dataloader
-
-    def test_dataloader(self):
-        if self.hparams.dataset == "ImageNet100":
-            test_dataset = ImageNet100(
+            val_dataset = ImageNet100(
                 root=self.hparams.dataset_dir,
                 split = 'val',
                 transform = self.val_set_transform
             )
 
-        self.N_test = len(test_dataset)
+            self.N_val = 5000
 
-        test_dataloader = DataLoader(test_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
+        val_dataloader = DataLoader(val_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
                                         pin_memory=True, shuffle=False)
 
-        return test_dataloader
+        return val_dataloader
     
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -163,87 +172,99 @@ class Baseline(LightningModule):
             self.logger.experiment.add_image('Train_Sample', img_grid(x), self.current_epoch)
 
         logits = self.forward(x)
+        pred_probs = logits.softmax(dim=-1)
 
         loss = self.criterion(logits, y)
 
-        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True, logger=True)
+        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
+        self.log("train_top_1", self.train_top_1(pred_probs, y), prog_bar=False, logger=False)
+        self.log("train_top_5", self.train_top_5(pred_probs, y), prog_bar=False, logger=False)
 
         return loss
+    
+    def training_epoch_end(self, outputs):
+        self.log("train_top_1", self.train_top_1.compute(), prog_bar=True, logger=True)
+        self.log("train_top_5", self.train_top_5.compute(), prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
 
+        if batch_idx == 0 and self.current_epoch == 0:
+            self.logger.experiment.add_image('Val_Sample', img_grid(x), self.current_epoch)
+
         logits = self.forward(x)
+        pred_probs = logits.softmax(dim=-1)
 
-        loss = self.criterion(logits, y)
-        top_1 = top_k_accuracy(logits, y, k=1)
-        top_5 = top_k_accuracy(logits, y, k=5)
+        self.log("val_top_1", self.val_top_1(pred_probs, y), prog_bar=False, logger=False)
+        self.log("val_top_5", self.val_top_5(pred_probs, y), prog_bar=False, logger=False)
 
-        loss_dict = {
-            "val_ce_loss": loss,
-            "top_1": top_1,
-            "top_5": top_5
-        }
+        # loss = self.criterion(logits, y)
+        # top_1 = top_k_accuracy(logits, y, k=1)
+        # top_5 = top_k_accuracy(logits, y, k=5)
 
-        return loss_dict
+        # loss_dict = {
+        #     "val_ce_loss": loss,
+        #     "top_1": top_1,
+        #     "top_5": top_5
+        # }
+
+        # return loss_dict
     
     def validation_epoch_end(self, outputs):
-        val_loss_mean = torch.stack([x['val_ce_loss'] for x in outputs]).sum() / self.N_val
-        top_1_mean = torch.stack([x['top_1'] for x in outputs]).sum() / self.N_val
-        top_5_mean = torch.stack([x['top_5'] for x in outputs]).sum() / self.N_val
+        # val_loss_mean = torch.stack([x['val_ce_loss'] for x in outputs]).sum() / self.N_val
+        # top_1_mean = torch.stack([x['top_1'] for x in outputs]).sum() / self.N_val
+        # top_5_mean = torch.stack([x['top_5'] for x in outputs]).sum() / self.N_val
 
-        self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True, sync_dist=True) #VAL_LOSS IS ACTUALLY (1 - TOP_5)
-        self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
-        self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
-        self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
+        # self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum') #VAL_LOSS IS ACTUALLY (1 - TOP_5)
+        # self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
+        # self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
+        # self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
 
-    def test_step(self, batch, batch_idx):
-        x, y = batch
-            
-        if batch_idx == 0:
-            self.logger.experiment.add_image('Test_Sample', img_grid(x), self.current_epoch)
-            
-        logits = self.forward(x)
+        self.log("val_top_1", self.val_top_1.compute(), prog_bar=True, logger=True)
+        self.log("val_top_5", self.val_top_5.compute(), prog_bar=True, logger=True)
 
-        loss = self.criterion(logits, y)
-        top_1 = top_k_accuracy(logits, y, k=1)
-        top_5 = top_k_accuracy(logits, y, k=5)
-
-        loss_dict = {
-            "test_ce_loss": loss,
-            "test_top_1": top_1,
-            "test_top_5": top_5
-        }
-
-        return loss_dict
-    
-    def test_epoch_end(self, outputs):
-        test_loss_mean = torch.stack([x['test_ce_loss'] for x in outputs]).sum() / self.N_test
-        top_1_mean = torch.stack([x['test_top_1'] for x in outputs]).sum() / self.N_test
-        top_5_mean = torch.stack([x['test_top_5'] for x in outputs]).sum() / self.N_test
-
-        self.log("test_ce_loss", test_loss_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
-        self.log("test_top_1", top_1_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
-        self.log("test_top_5", top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True)
-
-def run_baseline(config_file, lr):
+def run_baseline(config_file, lr = 0):
     args = grab_config(config_file)
 
-    args.lr = lr
+    if lr == 0:
+        lr = args.lr
+    else:
+        args.lr = lr
+    
+    seed_everything(args.seed)
 
     model = Baseline(args)
-
-    trainer = Trainer.from_argparse_args(args)
 
     logger = TensorBoardLogger(
         save_dir= args.logdir,
         version=args.experiment_name,
         name='Contrastive-Inversion'
     )
-    trainer.logger = logger
+    trainer = Trainer.from_argparse_args(args, plugins=DDPPlugin(find_unused_parameters=False), logger=logger)      
 
     trainer.fit(model)
 
+def grab_config(config_file):
+    """
+    Given a filename, grab the corresponsing config file and return it 
+    """
+    #Grab the argments
+    parser = argparse.ArgumentParser(description="Contrastive-Inversion")
+
+    config = yaml_config_hook("./config/Supervised_CLIP_Baselines/" + config_file)
+
+    for k, v in config.items():
+        parser.add_argument(f"--{k}", default=v, type=type(v))
+
+    args = parser.parse_args()
+
+    return args
+
+if __name__ == "__main__":
+
+    run_baseline("RN50_sq100.yaml")
+
+"""
 def linesearch(config_file, lr):
     args = grab_config(config_file)
 
@@ -268,22 +289,6 @@ def linesearch(config_file, lr):
     top_5 = trainer.logged_metrics["top_5"]
 
     return top_5
-
-def grab_config(config_file):
-    """
-    Given a filename, grab the corresponsing config file and return it 
-    """
-    #Grab the argments
-    parser = argparse.ArgumentParser(description="Contrastive-Inversion")
-
-    config = yaml_config_hook("./config/Supervised_CLIP_Baselines/" + config_file)
-
-    for k, v in config.items():
-        parser.add_argument(f"--{k}", default=v, type=type(v))
-
-    args = parser.parse_args()
-
-    return args
 
 def main():
     seed_everything(1234)
@@ -323,7 +328,4 @@ def main():
         print("BEST LR: ", lr_best)
 
         run_baseline(config_file, lr)
-
-if __name__ == "__main__":
-
-    run_baseline("RN50_test.yaml", 1e-4)
+"""
