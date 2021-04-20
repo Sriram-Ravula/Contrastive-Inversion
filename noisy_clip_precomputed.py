@@ -35,7 +35,7 @@ class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
     """
     def __init__(self, noisy_dataset, embeddings_file, return_label=False):
         self.dataset = noisy_dataset
-        self.embeddings = pickle.load(open(embeddings_file,'rb'))
+        self.embeddings = pickle.load(open(embeddings_file,'rb'))[0]
         self.return_label = return_label
 
     def __len__(self):
@@ -116,16 +116,7 @@ class ImageNetCLIPDataset(LightningDataModule):
             transform=self.val_set_transform
         )
 
-        filename = self.hparams.dataset_dir + self.hparams.subset_file_name
-
-        # Get the subset, as well as its labels as text.
-        text_labels = list(train_data.idx_to_class.values())
-
         self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, embeddings_file=self.hparams.embeddings_file, return_label=True)
-
-        # Save labels to be reused.
-        if self.hparams.save_mapping_and_text:
-            pickle.dump(text_labels, open(self.hparams.mapping_and_text_file, 'wb'))
 
     def train_dataloader(self):
         return DataLoader(self.train_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=True)
@@ -147,11 +138,6 @@ class NoisyCLIP(LightningModule):
 
         if self.hparams.dataset == "Imagenet-100":
             self.N_val = 5000 # Default ImageNet validation set, only 100 classes.
-            if self.hparams.mapping_and_text_file is None:
-                raise ValueError('No file from which to read text labels was specified.')
-
-            text_labels = pickle.load(open(self.hparams.mapping_and_text_file, 'rb'))
-            self.text_list = ['A photo of '+label.strip().replace('_',' ') for label in text_labels]
         else:
             raise NotImplementedError('Handling of the dataset not implemented yet.')
 
@@ -164,6 +150,9 @@ class NoisyCLIP(LightningModule):
         # self.text_embeddings = self.baseclip.encode_text(clip.tokenize(text_list).to(self.hparams.device))
         self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0].visual
         self.noisy_visual_encoder.train()
+
+        self.text_features = pickle.load(open(self.hparams.embeddings_file, 'rb'))[1]
+        self.text_features = self.text_features / self.text_features.norm(dim=-1, keepdim=True)
 
         self.train_top_1 = Accuracy(top_k=1)
         self.train_top_5 = Accuracy(top_k=5)
@@ -219,15 +208,15 @@ class NoisyCLIP(LightningModule):
         """
 
         image_features = self.encode_noisy_image(image)
-        text_features = self.baseclip.encode_text(clip.tokenize(self.text_list).to(self.device))
+        # text_features = self.baseclip.encode_text(clip.tokenize(self.text_list).to(self.device))
 
         # normalized features
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        # text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
         # cosine similarity as logits
-        logits_per_image = self.logit_scale * image_features.type(torch.float16) @ text_features.type(torch.float16).t() # Funny thing, here the original code spells 'iamge' instead of image. Hidden copyright protection? :p
-        logits_per_text = self.logit_scale * text_features.type(torch.float16) @ image_features.type(torch.float16).t()
+        logits_per_image = self.logit_scale * image_features.type(torch.float16) @ self.text_features.type(torch.float16).t() # Funny thing, here the original code spells 'iamge' instead of image. Hidden copyright protection? :p
+        logits_per_text = self.logit_scale * self.text_features.type(torch.float16) @ image_features.type(torch.float16).t()
 
         # shape = [global_batch_size, global_batch_size]
         return logits_per_image, logits_per_text
@@ -235,7 +224,7 @@ class NoisyCLIP(LightningModule):
     # Training methods
     def training_step(self, train_batch, batch_idx):
         embed_clean, image_noisy, labels = train_batch
-        #embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))
+        #embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))text_features / text_features.norm(dim=-1, keepdim=True)
         embed_noisy = self.encode_noisy_image(image_noisy)
         loss = self.criterion(embed_clean, embed_noisy)
 

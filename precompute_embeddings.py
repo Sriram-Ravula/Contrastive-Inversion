@@ -42,22 +42,26 @@ def precompute_embeddings():
     seed_everything(args.seed)
 
     train_data = ImageNet100(
-        root=self.hparams.dataset_dir,
+        root=args.dataset_dir,
         split="train",
         transform=None
     )
-    train_dl = DataLoader(train_data, transform=ImageNetBaseTransform(self.hparams), batch_size=256, shuffle=False)
+    train_dl = DataLoader(train_data, transform=ImageNetBaseTransform(args), batch_size=256, shuffle=False)
 
-    baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device)[0]
+    baseclip = clip.load(args.baseclip_type, args.device)[0]
     baseclip.eval()
     embeds_list = []
     with torch.no_grad():
-        for images, _ in train_dl:
-            embeds = baseclip.encode_image(images)
-            embeds_list.append(embeds)
+        for images, _ in tqdm(train_dl):
+            embeds = baseclip.encode_image(images.cuda())
+            embeds_list.append(embeds.type(torch.float16).cpu())
 
-    all_embeds = torch.cat(embeds_list).numpy()
-    pickle.dump(open(self.hparams.embeddings_file, 'wb'))
+    image_embeddings = torch.cat(embeds_list).cpu().numpy()
+    text_labels = list(train_data.idx_to_class.values())
+    text_embeddings = ['A photo of '+label.strip().replace('_',' ') for label in text_labels]
+
+    text_features = baseclip.encode_text(clip.tokenize(text_list).cuda()).cpu().numpy()
+    pickle.dump((image_embeddings, text_embeddings), open(args.embeddings_file, 'wb'))
 
 if __name__ == "__main__":
     precompute_embeddings()
