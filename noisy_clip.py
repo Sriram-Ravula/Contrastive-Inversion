@@ -121,7 +121,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         # Get the subset, as well as its labels as text.
         text_labels = list(train_data.idx_to_class.values())
 
-        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_clean=ImageNetBaseTransform(self.hparams), transform_contrastive=self.train_set_transform, return_label=True)
+        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_contrastive=self.train_set_transform, return_label=True)
 
         # Save labels to be reused.
         if self.hparams.save_mapping_and_text:
@@ -235,16 +235,16 @@ class NoisyCLIP(LightningModule):
     # Training methods
     def training_step(self, train_batch, batch_idx):
         image_clean, image_noisy, labels = train_batch
-        embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))
+        embed_clean = self.baseclip.encode_image(image_clean)
         embed_noisy = self.encode_noisy_image(image_noisy)
         loss = self.criterion(embed_clean, embed_noisy)
 
-        if batch_idx == 0 and self.current_epoch < 20:
-            self.logger.experiment.add_image('Train_Sample', img_grid(image_noisy), self.current_epoch)
+        #if batch_idx == 0 and self.current_epoch < 20:
+        #    self.logger.experiment.add_image('Train_Sample', img_grid(image_noisy), self.current_epoch)
 
-        image_logits, _ = self.forward(image_noisy)
-        image_logits = image_logits.float()
-        image_probs = image_logits.softmax(dim=-1)
+        #image_logits, _ = self.forward(image_noisy)
+        #image_logits = image_logits.float()
+        #image_probs = image_logits.softmax(dim=-1)
         # train_top_1 = self.train_top_1(image_probs, labels)
         # train_top_5 = self.train_top_5(image_probs, labels)
         #
@@ -254,8 +254,8 @@ class NoisyCLIP(LightningModule):
         #     'train_top_5': top_5,
         #     'num_samples': image_clean.shape[0]
         # }
-        self.log('train_top_1_step', self.train_top_1(image_probs, labels), prog_bar=False, logger=False)
-        self.log('train_top_5_step', self.train_top_5(image_probs, labels), prog_bar=False, logger=False)
+        #self.log('train_top_1_step', self.train_top_1(image_probs, labels), prog_bar=False, logger=False)
+        #self.log('train_top_5_step', self.train_top_5(image_probs, labels), prog_bar=False, logger=False)
 
         return loss
 
@@ -273,7 +273,7 @@ class NoisyCLIP(LightningModule):
     #     }
     #     return full_output
 
-    def training_epoch_end(self, outputs):
+    #def training_epoch_end(self, outputs):
         # N_train = np.sum([out['num_samples'] for out in outputs])
         # train_loss = np.sum([out['train_loss']/out['num_samples'] for out in outputs]) / N_train
         # top_1_mean = torch.stack([out['train_top_1'] for out in outputs]).sum() / N_train
@@ -281,16 +281,16 @@ class NoisyCLIP(LightningModule):
         # self.log("train_loss", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
         # self.log("train_top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
         # self.log("train_top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
-        self.log('train_top_1', self.train_top_1.compute(), prog_bar=True, logger=True)
-        self.log('train_top_5', self.train_top_5.compute(), prog_bar=True, logger=True)
+        #self.log('train_top_1', self.train_top_1.compute(), prog_bar=True, logger=True)
+        #self.log('train_top_5', self.train_top_5.compute(), prog_bar=True, logger=True)
 
     # Validation methods
     def validation_step(self, test_batch, batch_idx):
         images_noisy, labels = test_batch
         image_logits, _ = self.forward(images_noisy)
 
-        if batch_idx == 0 and self.current_epoch < 20:
-            self.logger.experiment.add_image('Val_Sample', img_grid(images_noisy), self.current_epoch)
+        #if batch_idx == 0 and self.current_epoch < 20:
+        #    self.logger.experiment.add_image('Val_Sample', img_grid(images_noisy), self.current_epoch)
 
         image_logits, _ = self.forward(images_noisy)
         image_logits = image_logits.float()

@@ -33,21 +33,21 @@ class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
     Each item of the dataset is a tuple of a clean image and a noisy image (two
     separate transformations.)
     """
-    def __init__(self, noisy_dataset, embeddings_file, return_label=False):
-        self.dataset = noisy_dataset
-        self.embeddings = pickle.load(open(embeddings_file,'rb'))[0]
+    def __init__(self, clean_dataset, transform_contrastive=None, return_label=False):
+        self.base = clean_dataset
+        self.transform_contrastive = transform_contrastive
         self.return_label = return_label
 
     def __len__(self):
-        return len(self.dataset)
+        return len(self.base)
 
     def __getitem__(self, idx):
-        image_noisy, label = self.dataset[idx]
-        embed_clean = ToTensor(self.embeddings[idx])
+        image_orig, label = self.base[idx]
+        image_clean, image_noisy = self.transform_contrastive(image_orig) if self.transform_contrastive is not None else (image_orig, image_orig)
         if self.return_label:
-            return embed_clean, image_noisy, label
+            return image_clean, image_noisy, label
         else:
-            return embed_clean, image_noisy
+            return image_clean, image_noisy
 
 class CIFAR10CLIPDataset(LightningDataModule):
     """
@@ -98,7 +98,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         self.batch_size = self.hparams.batch_size
 
         # NOTE: training now uses the same distortion as validation (no RandomResizedCrop/RandomHorizontalFlip)
-        self.train_set_transform = ImageNetDistortTrain(self.hparams)
+        self.train_set_transform = ImageNetDistortTrainContrastive(self.hparams)
         if self.hparams.fixed_mask:
             self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
         else:
@@ -108,7 +108,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         train_data = ImageNet100(
         	root=self.hparams.dataset_dir,
             split="train",
-            transform=self.train_set_transform
+            transform=None
         )
         self.val_data = ImageNet100(
             root=self.hparams.dataset_dir,
@@ -116,7 +116,16 @@ class ImageNetCLIPDataset(LightningDataModule):
             transform=self.val_set_transform
         )
 
-        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, embeddings_file=self.hparams.embeddings_file, return_label=True)
+        filename = self.hparams.dataset_dir + self.hparams.subset_file_name
+
+        # Get the subset, as well as its labels as text.
+        text_labels = list(train_data.idx_to_class.values())
+
+        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_contrastive=self.train_set_transform, return_label=True)
+
+        # Save labels to be reused.
+        if self.hparams.save_mapping_and_text:
+            pickle.dump(text_labels, open(self.hparams.mapping_and_text_file, 'wb'))
 
     def train_dataloader(self):
         return DataLoader(self.train_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=True)
@@ -138,21 +147,23 @@ class NoisyCLIP(LightningModule):
 
         if self.hparams.dataset == "Imagenet-100":
             self.N_val = 5000 # Default ImageNet validation set, only 100 classes.
+            if self.hparams.mapping_and_text_file is None:
+                raise ValueError('No file from which to read text labels was specified.')
+
+            text_labels = pickle.load(open(self.hparams.mapping_and_text_file, 'rb'))
+            self.text_list = ['A photo of '+label.strip().replace('_',' ') for label in text_labels]
         else:
             raise NotImplementedError('Handling of the dataset not implemented yet.')
 
         #self.criterion = None
         #self.criterion = ContrastiveLoss(tau=self.hparams.loss_tau, device=self.hparams.device)
         self.logit_scale = self.hparams.logit_scale
-        # self.baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0]
-        # self.baseclip.eval()
-        # self.baseclip.requires_grad_(False)
+        self.baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0]
+        self.baseclip.eval()
+        self.baseclip.requires_grad_(False)
         # self.text_embeddings = self.baseclip.encode_text(clip.tokenize(text_list).to(self.hparams.device))
         self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0].visual
         self.noisy_visual_encoder.train()
-
-        self.text_features = pickle.load(open(self.hparams.embeddings_file, 'rb'))[1]
-        self.text_features = self.text_features / self.text_features.norm(dim=-1, keepdim=True)
 
         self.train_top_1 = Accuracy(top_k=1)
         self.train_top_5 = Accuracy(top_k=5)
@@ -172,7 +183,7 @@ class NoisyCLIP(LightningModule):
             exp_sim_mat = torch.exp(sim_mat/self.hparams.loss_tau)
             mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).to(self.device)
             logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
-
+            
             part1 = torch.sum(torch.diag(logmat, diagonal=1)[np.arange(0,2*bsz,2)])
             part2 = torch.sum(torch.diag(logmat, diagonal=-1)[np.arange(0,2*bsz,2)])
             loss = (part1 + part2)/2
@@ -201,39 +212,43 @@ class NoisyCLIP(LightningModule):
     def encode_noisy_image(self, image):
         return self.noisy_visual_encoder(image.type(torch.float16))
 
-    def forward(self, image, text=None):
+    def forward(self, image_features, text=None):
         """
         This forward method is taken from original CLIP model. The use is the same as
         the original function, apart from using the encoder trained for noise images.
         """
 
-        image_features = self.encode_noisy_image(image)
-        # text_features = self.baseclip.encode_text(clip.tokenize(self.text_list).to(self.device))
+        #image_features = self.encode_noisy_image(image)
+        text_features = self.baseclip.encode_text(clip.tokenize(self.text_list).to(self.device))
 
         # normalized features
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-        # text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
         # cosine similarity as logits
-        logits_per_image = self.logit_scale * image_features.type(torch.float16) @ self.text_features.type(torch.float16).t() # Funny thing, here the original code spells 'iamge' instead of image. Hidden copyright protection? :p
-        logits_per_text = self.logit_scale * self.text_features.type(torch.float16) @ image_features.type(torch.float16).t()
+        logits_per_image = self.logit_scale * image_features.type(torch.float16) @ text_features.type(torch.float16).t() # Funny thing, here the original code spells 'iamge' instead of image. Hidden copyright protection? :p
+        logits_per_text = self.logit_scale * text_features.type(torch.float16) @ image_features.type(torch.float16).t()
 
         # shape = [global_batch_size, global_batch_size]
         return logits_per_image, logits_per_text
 
     # Training methods
     def training_step(self, train_batch, batch_idx):
-        embed_clean, image_noisy, labels = train_batch
-        #embed_clean = self.baseclip.encode_image(image_clean.type(torch.float32))text_features / text_features.norm(dim=-1, keepdim=True)
+        image_clean, image_noisy, labels = train_batch
+        embed_clean = self.baseclip.encode_image(image_clean)
         embed_noisy = self.encode_noisy_image(image_noisy)
-        loss = self.criterion(embed_clean, embed_noisy)
+        return {'embed_clean': embed_clean, 'embed_noisy': embed_noisy}
+        
+    def training_step_end(self, outputs):
+        embed_clean_full = outputs['embed_clean']
+        embed_noisy_full = outputs['embed_noisy']
+        loss = self.criterion(embed_clean_full, embed_noisy_full)
 
-        if batch_idx == 0 and self.current_epoch < 20:
-            self.logger.experiment.add_image('Train_Sample', img_grid(image_noisy), self.current_epoch)
-
-        image_logits, _ = self.forward(image_noisy)
-        image_logits = image_logits.float()
-        image_probs = image_logits.softmax(dim=-1)
+        #if batch_idx == 0 and self.current_epoch < 20:
+        #    self.logger.experiment.add_image('Train_Sample', img_grid(image_noisy), self.current_epoch)
+        #image_logits, _ = self.forward(image_noisy)
+        #image_logits = image_logits.float()
+        #image_probs = image_logits.softmax(dim=-1)
         # train_top_1 = self.train_top_1(image_probs, labels)
         # train_top_5 = self.train_top_5(image_probs, labels)
         #
@@ -243,8 +258,8 @@ class NoisyCLIP(LightningModule):
         #     'train_top_5': top_5,
         #     'num_samples': image_clean.shape[0]
         # }
-        self.log('train_top_1_step', self.train_top_1(image_probs, labels), prog_bar=False, logger=False)
-        self.log('train_top_5_step', self.train_top_5(image_probs, labels), prog_bar=False, logger=False)
+        #self.log('train_top_1_step', self.train_top_1(image_probs, labels), prog_bar=False, logger=False)
+        #self.log('train_top_5_step', self.train_top_5(image_probs, labels), prog_bar=False, logger=False)
 
         return loss
 
@@ -262,7 +277,7 @@ class NoisyCLIP(LightningModule):
     #     }
     #     return full_output
 
-    def training_epoch_end(self, outputs):
+    #def training_epoch_end(self, outputs):
         # N_train = np.sum([out['num_samples'] for out in outputs])
         # train_loss = np.sum([out['train_loss']/out['num_samples'] for out in outputs]) / N_train
         # top_1_mean = torch.stack([out['train_top_1'] for out in outputs]).sum() / N_train
@@ -270,22 +285,26 @@ class NoisyCLIP(LightningModule):
         # self.log("train_loss", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
         # self.log("train_top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
         # self.log("train_top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True)
-        self.log('train_top_1', self.train_top_1.compute(), prog_bar=True, logger=True)
-        self.log('train_top_5', self.train_top_5.compute(), prog_bar=True, logger=True)
+        #self.log('train_top_1', self.train_top_1.compute(), prog_bar=True, logger=True)
+        #self.log('train_top_5', self.train_top_5.compute(), prog_bar=True, logger=True)
 
     # Validation methods
     def validation_step(self, test_batch, batch_idx):
         images_noisy, labels = test_batch
-        image_logits, _ = self.forward(images_noisy)
+        image_features = self.encode_noisy_image(images_noisy)
+        return {'image_features': image_features, 'labels': labels}
 
-        if batch_idx == 0 and self.current_epoch < 20:
-            self.logger.experiment.add_image('Val_Sample', img_grid(images_noisy), self.current_epoch)
+    def validation_step_end(self, outputs):
+        image_features_full = outputs['image_features']
+        labels_full = outputs['labels']
+        #if batch_idx == 0 and self.current_epoch < 20:
+        #    self.logger.experiment.add_image('Val_Sample', img_grid(images_noisy), self.current_epoch)
 
-        image_logits, _ = self.forward(images_noisy)
+        image_logits, _ = self.forward(image_features_full)
         image_logits = image_logits.float()
         image_probs = image_logits.softmax(dim=-1)
-        self.log('val_top_1_step', self.val_top_1(image_probs, labels), prog_bar=False, logger=False)
-        self.log('val_top_5_step', self.val_top_5(image_probs, labels), prog_bar=False, logger=False)
+        self.log('val_top_1_step', self.val_top_1(image_probs, labels_full), prog_bar=False, logger=False)
+        self.log('val_top_5_step', self.val_top_5(image_probs, labels_full), prog_bar=False, logger=False)
 
         # loss = torch.nn.CrossEntropyLoss()(image_logits, labels)
         # top_1 = top_k_accuracy(image_logits, labels, k=1)
