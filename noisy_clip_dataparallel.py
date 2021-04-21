@@ -181,7 +181,7 @@ class NoisyCLIP(LightningModule):
 
             # Calculate logits used for the contrastive loss.
             exp_sim_mat = torch.exp(sim_mat/self.hparams.loss_tau)
-            mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).to(self.device)
+            mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).type_as(exp_sim_mat)
             logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
             
             part1 = torch.sum(torch.diag(logmat, diagonal=1)[np.arange(0,2*bsz,2)])
@@ -205,9 +205,9 @@ class NoisyCLIP(LightningModule):
 
     def configure_optimizers(self):
         optim = torch.optim.SGD(self.noisy_visual_encoder.parameters(), lr=self.hparams.lr, momentum=self.hparams.momentum)
-        #sched = torch.optim.lr_scheduler.LambdaLR(optim, lambda epoch: 1/(epoch+1))
-        #return [optim], [sched]
-        return optim
+        num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus)
+        sched = torch.optim.lr_scheduler.CosineAnnealingLR(optim, T_max=num_steps)
+        return [optim], [sched]
 
     def encode_noisy_image(self, image):
         return self.noisy_visual_encoder(image.type(torch.float16))
