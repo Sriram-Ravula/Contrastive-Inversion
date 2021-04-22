@@ -262,7 +262,7 @@ def grab_config(config_file):
 
 if __name__ == "__main__":
 
-    run_baseline("RN50_sq50.yaml")
+    run_baseline("RN50_sq100.yaml")
 
 """
 def linesearch(config_file, lr):

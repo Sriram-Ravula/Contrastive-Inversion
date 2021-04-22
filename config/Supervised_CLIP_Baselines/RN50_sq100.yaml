@@ -15,12 +15,13 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "RN101_SQ100_FIXED"
+experiment_name: "RN101_SQ100_NONFIXED"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "squaremask" #randommask or squaremask
 length: 100 #Only for squaremask
-fixed_mask: True
+offset: "random"
+fixed_mask: False
 
 #model - CHANGE BETWEEN RUNS
 encoder: "resnet" #'clip' or 'resnet'
