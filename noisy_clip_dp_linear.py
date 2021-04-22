@@ -139,7 +139,7 @@ class NoisyCLIP(LightningModule):
         #(3) set up the student CLIP network - unfreeze it and use gradients!
         self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0].visual
         self.noisy_visual_encoder.train()
-        self.baseclip.requires_grad_(True)
+        self.noisy_visual_encoder.requires_grad_(True)
 
         #(4) set up the training and validation losses!
         self.logit_scale = self.hparams.logit_scale #Tau in the InfoNCE loss - temperature
