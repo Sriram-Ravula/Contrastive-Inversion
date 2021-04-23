@@ -30,7 +30,8 @@ from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normal
 from noisy_clip_dataparallel import NoisyCLIP
 
 class LinearProbe(LightningModule):
-    def __init__(self, args, backbone):
+    def __init__(self, args):
+        super(LinearProbe, self).__init__()
         self.hparams = args
 
         #(1) Set up the dataset
@@ -59,7 +60,7 @@ class LinearProbe(LightningModule):
             param.requires_grad = False
 
         #This is the meat
-        self.output = nn.Linear(self.hparams.emb_dim, self.hparams.n_classes)
+        self.output = nn.Linear(self.hparams.emb_dim, self.hparams.num_classes)
 
         #Set up training and validation metrics
         self.criterion = nn.CrossEntropyLoss(reduction = "sum")
@@ -82,9 +83,12 @@ class LinearProbe(LightningModule):
         return self.output(noisy_embeddings.float())
     
     def configure_optimizers(self):
-        opt = torch.optim.Adam(self.output.parameters(), lr = self.lr)
+        opt = torch.optim.Adam(self.output.parameters(), lr = self.hparams.lr)
 
-        num_steps = 5000//(self.hparams.batch_size * self.hparams.gpus)
+        if self.hparams.dataset == "ImageNet100":
+            num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus) #divide N_train by number of distributed iters
+        else:
+            num_steps = 500
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=num_steps)
 
