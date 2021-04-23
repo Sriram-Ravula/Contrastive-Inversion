@@ -441,7 +441,7 @@ def few_shot_dataset(dataset, num_samples, n_classes=100):
 
     subset_img_indices = []
 
-    for n in n_classes:
+    for n in range(n_classes):
         #grab the indices of all the images in the current class
         original_img_inds = [i for i, label in enumerate(dataset.targets) if label == n] 
 
