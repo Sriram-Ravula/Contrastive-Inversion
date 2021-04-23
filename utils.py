@@ -434,6 +434,27 @@ def get_subset(dataset, filename, return_class_labels=False):
             text_labels.append(class_list[pos])
         return ds_subset, og_to_new_dict, text_labels
 
+def few_shot_dataset(dataset, num_samples, n_classes=100):
+    """
+    A method to randomly subset the classes in a given dataset, with an equal number of samples per class in the subset.
+    """
+
+    subset_img_indices = []
+
+    for n in n_classes:
+        #grab the indices of all the images in the current class
+        original_img_inds = [i for i, label in enumerate(dataset.targets) if label == n] 
+
+        #grab num_samples random image indices from the class
+        random_img_subset = np.random.choice(original_img_inds, size=num_samples, replace=False)
+
+        #add this random subset of images from the same class to our master subset
+        subset_img_indices.extend(random_img_subset)
+    
+    few_shot_subset = Subset(dataset, subset_img_indices)
+
+    return few_shot_subset
+
 def map_classes(og_classes, remap):
     """
     Takes a list of classes for a batch of data and a map from old to new classes.
