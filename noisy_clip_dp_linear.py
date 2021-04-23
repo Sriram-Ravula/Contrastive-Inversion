@@ -61,12 +61,17 @@ class ImageNetCLIPDataset(LightningDataModule):
         self.dataset_dir = self.hparams.dataset_dir
         self.batch_size = self.hparams.batch_size
 
-        #set up the training transform and if we want a fixed mask, transfer the same mask to the validation transform
-        self.train_set_transform = ImageNetDistortTrainContrastive(self.hparams)
-        if self.hparams.fixed_mask:
-            self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
+        if self.hparams.distortion == "None":
+            self.train_set_transform = ImageNetBaseTrainContrastive(self.hparams)
+            self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
         else:
-            self.val_set_transform = ImageNetDistortVal(self.hparams)
+            #set up the training transform and if we want a fixed mask, transfer the same mask to the validation transform
+            self.train_set_transform = ImageNetDistortTrainContrastive(self.hparams)
+
+            elif self.hparams.fixed_mask:
+                self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
+            else:
+                self.val_set_transform = ImageNetDistortVal(self.hparams)
 
     def setup(self, stage=None):
         train_data = ImageNet100(

@@ -179,6 +179,35 @@ class ImageNetBaseTransformVal:
     def __call__(self, x):
         return self.transform(x)
 
+class ImageNetBaseTrainContrastive:
+    """
+    Torchvision composition of transforms to produce ImageNet images with a distortion.
+    For training, this class will apply a random crop and random horizontal flip as well.
+    This explicitly returns a pair of images (clean, noisy).
+    """
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
+
+        self.transform = transforms.Compose([
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize
+        ])
+
+    def __call__(self, x):
+        x_clean = self.transform(x)
+        x_clean_copy = x_clean.clone()
+
+        return x_clean, x_clean_copy
+
 class ImageNetDistortTrainContrastive:
     """
     Torchvision composition of transforms to produce ImageNet images with a distortion.
