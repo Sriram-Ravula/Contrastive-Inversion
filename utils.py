@@ -179,6 +179,35 @@ class ImageNetBaseTransformVal:
     def __call__(self, x):
         return self.transform(x)
 
+class ImageNetBaseTrainContrastive:
+    """
+    Torchvision composition of transforms to produce ImageNet images with a distortion.
+    For training, this class will apply a random crop and random horizontal flip as well.
+    This explicitly returns a pair of images (clean, noisy).
+    """
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
+
+        self.transform = transforms.Compose([
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize
+        ])
+
+    def __call__(self, x):
+        x_clean = self.transform(x)
+        x_clean_copy = x_clean.clone()
+
+        return x_clean, x_clean_copy
+
 class ImageNetDistortTrainContrastive:
     """
     Torchvision composition of transforms to produce ImageNet images with a distortion.
@@ -433,6 +462,27 @@ def get_subset(dataset, filename, return_class_labels=False):
             pos = idx_list.index(idx)
             text_labels.append(class_list[pos])
         return ds_subset, og_to_new_dict, text_labels
+
+def few_shot_dataset(dataset, num_samples, n_classes=100):
+    """
+    A method to randomly subset the classes in a given dataset, with an equal number of samples per class in the subset.
+    """
+
+    subset_img_indices = []
+
+    for n in range(n_classes):
+        #grab the indices of all the images in the current class
+        original_img_inds = [i for i, label in enumerate(dataset.targets) if label == n] 
+
+        #grab num_samples random image indices from the class
+        random_img_subset = np.random.choice(original_img_inds, size=num_samples, replace=False)
+
+        #add this random subset of images from the same class to our master subset
+        subset_img_indices.extend(random_img_subset)
+    
+    few_shot_subset = Subset(dataset, subset_img_indices)
+
+    return few_shot_subset
 
 def map_classes(og_classes, remap):
     """

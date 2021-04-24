@@ -15,12 +15,12 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "RN101_RAND90_FIXED"
+experiment_name: "RN101_RAND90_NONFIXED"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "randommask" #randommask or squaremask
 percent_missing: 0.9 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
-fixed_mask: True
+fixed_mask: False
 
 #model - CHANGE BETWEEN RUNS
 encoder: "resnet" #'clip' or 'resnet'

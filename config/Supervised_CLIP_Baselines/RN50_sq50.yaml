@@ -20,6 +20,7 @@ experiment_name: "RN101_SQ50_FIXED"
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "squaremask" #randommask or squaremask
 length: 50 #Only for squaremask
+offset: "center"
 fixed_mask: True
 
 #model - CHANGE BETWEEN RUNS
