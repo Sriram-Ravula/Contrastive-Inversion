@@ -14,8 +14,8 @@ distortion: "randommask"
 fixed_mask: True
 percent_missing: 0.9
 
-lr: 0.001
-momentum: 0.5
+lr: 0.0003
+weight_decay: 0.0001
 loss_tau: 0.1
 logit_scale: 0.07
 

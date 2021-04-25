@@ -63,7 +63,7 @@ class LinearProbe(LightningModule):
         self.output = nn.Linear(self.hparams.emb_dim, self.hparams.num_classes)
 
         #Set up training and validation metrics
-        self.criterion = nn.CrossEntropyLoss(reduction = "sum")
+        self.criterion = nn.CrossEntropyLoss()
 
         self.val_top_1 = Accuracy(top_k=1)
         self.val_top_5 = Accuracy(top_k=5)
@@ -87,6 +87,8 @@ class LinearProbe(LightningModule):
 
         if self.hparams.dataset == "ImageNet100":
             num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus) #divide N_train by number of distributed iters
+            if self.hparams.use_subset:
+                num_steps = num_steps * self.hparams.subset_ratio
         else:
             num_steps = 500
 
@@ -101,6 +103,9 @@ class LinearProbe(LightningModule):
                 split = 'train',
                 transform = self.train_set_transform
             )
+        N_train = len(train_dataset)
+        if self.hparams.use_subset:
+            train_dataset = few_shot_dataset(train_dataset, int(np.ceil(N_train*self.hparams.subset_ratio/100)))
 
         train_dataloader = DataLoader(train_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
                                         pin_memory=True, shuffle=True)
@@ -117,7 +122,7 @@ class LinearProbe(LightningModule):
 
             self.N_val = 5000
 
-        val_dataloader = DataLoader(val_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
+        val_dataloader = DataLoader(val_dataset, batch_size=4*self.hparams.batch_size, num_workers=self.hparams.workers,\
                                         pin_memory=True, shuffle=False)
 
         return val_dataloader
