@@ -8,7 +8,7 @@ gpus: 4
 encoder: "clip"
 baseclip_type: "RN101"
 device: "cpu"
-loss_type: "simclr"
+loss_type: "mse"
 
 distortion: "randommask"
 fixed_mask: True
@@ -27,7 +27,7 @@ subset_file_name: "imagenet100.txt"
 dataset_dir: "/tmp/imagenet100"
 logdir: "/tmp"
 mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
-save_mapping_and_text: False
+save_mapping_and_text: True
 
 batch_size: 256
 

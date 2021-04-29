@@ -20,8 +20,8 @@ experiment_name: "sub10_noise_nonfixed"
 checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/Noisy_RN101_noise05_contrastive_nonfixed/checkpoints/epoch=24-step=12374.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
-distortion: "randommask" #randommask or squaremask
-percent_missing: 0.9 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
+distortion: "gaussiannoise" #randommask or squaremask
+std: 0.5
 fixed_mask: True
 
 encoder: "clip"
