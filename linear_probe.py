@@ -67,6 +67,9 @@ class LinearProbe(LightningModule):
 
         self.val_top_1 = Accuracy(top_k=1)
         self.val_top_5 = Accuracy(top_k=5)
+        self.test_top_1 = Accuracy(top_k=1)
+        self.test_top_5 = Accuracy(top_k=5)
+
 
     def forward(self, x):
         """
@@ -164,12 +167,12 @@ class LinearProbe(LightningModule):
         logits = self.forward(x)
         pred_probs = logits.softmax(dim=-1)
 
-        self.log("test_top_1", self.val_top_1(pred_probs, y), prog_bar=False, logger=False)
-        self.log("test_top_5", self.val_top_5(pred_probs, y), prog_bar=False, logger=False)
+        self.log("test_top_1", self.test_top_1(pred_probs, y), prog_bar=False, logger=False)
+        self.log("test_top_5", self.test_top_5(pred_probs, y), prog_bar=False, logger=False)
 
     def test_epoch_end(self, outputs):
-        self.log("test_top_1", self.val_top_1.compute(), prog_bar=True, logger=True)
-        self.log("test_top_5", self.val_top_5.compute(), prog_bar=True, logger=True)
+        self.log("test_top_1", self.test_top_1.compute(), prog_bar=True, logger=True)
+        self.log("test_top_5", self.test_top_5.compute(), prog_bar=True, logger=True)
 
 def grab_config():
     parser = argparse.ArgumentParser(description="NoisyCLIP")

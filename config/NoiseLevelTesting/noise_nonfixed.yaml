@@ -17,7 +17,7 @@ distributed_backend: "ddp"
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
 experiment_name: "noise_nonfixed"
-checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Linear_Subset/sub10_noise_nonfixed/checkpoints/epoch=24-step=1024.ckpt"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Linear_Subset/sub10_noise_nonfixed/checkpoints/epoch=24-step=9924.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "gaussiannoise" #randommask or squaremask
