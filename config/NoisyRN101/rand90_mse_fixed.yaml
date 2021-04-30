@@ -1,9 +1,9 @@
 seed: 1234
 
-experiment_name: "resnet50_noisyclip_randommask_90_mse"
+experiment_name: "Noisy_RN101_rand90_mse_fixed"
 
 num_nodes: 1
-gpus: 2
+gpus: 4
 
 encoder: "clip"
 baseclip_type: "RN101"
@@ -11,10 +11,11 @@ device: "cpu"
 loss_type: "mse"
 
 distortion: "randommask"
+fixed_mask: True
 percent_missing: 0.9
 
-lr: 0.0001
-momentum: 0.5
+lr: 0.0003
+weight_decay: 0.0001
 loss_tau: 0.1
 logit_scale: 0.07
 
@@ -22,15 +23,16 @@ dataset: "Imagenet-100"
 num_classes: 100
 subset_file_name: "imagenet100.txt"
 
-dataset_dir: "/work/08002/gsmyrnis/maverick2/clip_experiments/data/imagenet/"
-mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
-save_mapping_and_text: False
+dataset_dir: "/tmp/imagenet100"
+logdir: "/tmp"
+mapping_and_text_file: "./mapping_text_labels_imagenet100_mse.pkl"
+save_mapping_and_text: True
 
-batch_size: 128
+batch_size: 256
 
 workers: 12
 
-distributed_backend: "ddp"
+distributed_backend: "dp"
 
 #training
 max_epochs: 25

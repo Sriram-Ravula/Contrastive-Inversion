@@ -204,7 +204,7 @@ class NoisyCLIP(LightningModule):
 
 
     def configure_optimizers(self):
-        optim = torch.optim.SGD(self.noisy_visual_encoder.parameters(), lr=self.hparams.lr, momentum=self.hparams.momentum)
+        optim = torch.optim.Adam(self.noisy_visual_encoder.parameters(), lr=self.hparams.lr)
         num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus)
         sched = torch.optim.lr_scheduler.CosineAnnealingLR(optim, T_max=num_steps)
         return [optim], [sched]
@@ -260,7 +260,7 @@ class NoisyCLIP(LightningModule):
         # }
         #self.log('train_top_1_step', self.train_top_1(image_probs, labels), prog_bar=False, logger=False)
         #self.log('train_top_5_step', self.train_top_5(image_probs, labels), prog_bar=False, logger=False)
-
+        self.log('train_loss', loss, prog_bar=False, logger=True, sync_dist=True, on_step=True, on_epoch=True)
         return loss
 
     # def training_step_end(self, outputs):

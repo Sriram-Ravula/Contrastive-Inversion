@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "Noisy_RN101_rand75_contrastive_nonfixed"
+experiment_name: "Noisy_RN101_noise03_contrastive_nonfixed"
 
 num_nodes: 1
 gpus: 4
@@ -10,9 +10,9 @@ baseclip_type: "RN101"
 device: "cpu"
 loss_type: "simclr"
 
-distortion: "randommask"
+distortion: "gaussiannoise"
 fixed_mask: False
-percent_missing: 0.75
+std: 0.3
 
 lr: 0.0003
 weight_decay: 0.0001
@@ -25,7 +25,7 @@ subset_file_name: "imagenet100.txt"
 
 dataset_dir: "/tmp/imagenet100"
 logdir: "/tmp"
-mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
+mapping_and_text_file: "./mapping_text_labels_imagenet100_noise.pkl"
 save_mapping_and_text: True
 
 batch_size: 256
