@@ -37,7 +37,6 @@ class ImageNet100NoisyValDataset(LightningDataModule):
         self.hparams = args
 
         self.dataset_dir = self.hparams.dataset_dir
-        self.batch_size = self.hparams.batch_size
 
         if self.hparams.distortion == "None":
             self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
@@ -52,7 +51,7 @@ class ImageNet100NoisyValDataset(LightningDataModule):
         )
 
     def test_dataloader(self):
-        return DataLoader(self.val_data, batch_size=2*self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
+        return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
 
 
 def grab_config():
@@ -72,8 +71,6 @@ def noise_level_eval():
     args = grab_config()
 
     seed_everything(args.seed)
-
-    model = LinearProbe(args)
 
     logger = TensorBoardLogger(
         save_dir=args.logdir,
@@ -95,7 +92,7 @@ def noise_level_eval():
             args.sigma = noise_level[1]
 
         test_data = ImageNet100NoisyValDataset(args)
-        trainer.test(model=saved_model, datamodule=test_data)
+        trainer.test(model=saved_model, datamodule=test_data, verbose=True)
 
 if __name__ == "__main__":
     noise_level_eval()
