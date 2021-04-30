@@ -293,8 +293,9 @@ def grab_config(config_file):
     #Grab the argments
     parser = argparse.ArgumentParser(description="Contrastive-Inversion")
 
-    config = yaml_config_hook("./config/Supervised_CLIP_Baselines/" + config_file)
+    parser.add_argument('--config_file')
 
+    config = yaml_config_hook(parser.parse_args().config_file)
     for k, v in config.items():
         parser.add_argument(f"--{k}", default=v, type=type(v))
 
@@ -304,4 +305,4 @@ def grab_config(config_file):
 
 if __name__ == "__main__":
 
-    run_baseline("Clean.yaml")
+    run_baseline()
