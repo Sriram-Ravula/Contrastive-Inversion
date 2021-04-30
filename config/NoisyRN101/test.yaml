@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "Noisy_RN101_test"
+experiment_name: "CLIP_ZEROSHOT_CLEAN_VAL"
 
 num_nodes: 1
 gpus: 4
@@ -10,9 +10,7 @@ baseclip_type: "RN101"
 device: "cpu"
 loss_type: "simclr"
 
-distortion: "randommask"
-fixed_mask: True
-percent_missing: 0.5
+distortion: "None"
 
 lr: 0.01
 momentum: 0.5
@@ -23,22 +21,20 @@ dataset: "Imagenet-100"
 num_classes: 100
 subset_file_name: "imagenet100.txt"
 
-dataset_dir: "/tmp/imagenet100"
+dataset_dir: "/tmp/ImageNet100"
 logdir: "/tmp"
 mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
-save_mapping_and_text: False
-embeddings_file: "/tmp/embeddings.pkl"
+save_mapping_and_text: True
 
 batch_size: 256
 
 workers: 12
 
 distributed_backend: "dp"
-#accelerator: "dp"
 
 #training
-max_epochs: 2
-log_save_interval: 2 #set this to be equal to num_epochs if row_log_interval is 1
+max_epochs: 25
+log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 sync_bn: True
 

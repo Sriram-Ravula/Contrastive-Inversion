@@ -64,14 +64,17 @@ class ImageNetCLIPDataset(LightningDataModule):
         if self.hparams.distortion == "None":
             self.train_set_transform = ImageNetBaseTrainContrastive(self.hparams)
             self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
+            self.test_set_transform = ImageNetBaseTransformVal(self.hparams)
         else:
             #set up the training transform and if we want a fixed mask, transfer the same mask to the validation transform
             self.train_set_transform = ImageNetDistortTrainContrastive(self.hparams)
 
-            elif self.hparams.fixed_mask:
+            if self.hparams.fixed_mask:
                 self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
+                self.test_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
             else:
                 self.val_set_transform = ImageNetDistortVal(self.hparams)
+                self.test_set_transform = ImageNetDistortVal(self.hparams)
 
     def setup(self, stage=None):
         train_data = ImageNet100(
@@ -83,6 +86,11 @@ class ImageNetCLIPDataset(LightningDataModule):
             root=self.hparams.dataset_dir,
             split="val",
             transform=self.val_set_transform
+        )
+        self.test_data = ImageNet100(
+            root=self.hparams.dataset_dir,
+            split="val",
+            transform=self.test_set_transform
         )
 
         filename = self.hparams.dataset_dir + self.hparams.subset_file_name
@@ -101,6 +109,9 @@ class ImageNetCLIPDataset(LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(self.val_data, batch_size=2*self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
+    
+    def test_dataloader(self):
+        return DataLoader(self.test_data, batch_size=2*self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
 
 
 class NoisyCLIP(LightningModule):
@@ -151,6 +162,9 @@ class NoisyCLIP(LightningModule):
 
         self.val_top_1 = Accuracy(top_k=1)
         self.val_top_5 = Accuracy(top_k=5)
+
+        self.test_top_1 = Accuracy(top_k=1)
+        self.test_top_5 = Accuracy(top_k=5)
 
     def criterion(self, input1, input2, reduction='mean'):
         """
@@ -310,6 +324,44 @@ class NoisyCLIP(LightningModule):
         """
         self.log('val_top_1', self.val_top_1.compute(), prog_bar=True, logger=True)
         self.log('val_top_5', self.val_top_5.compute(), prog_bar=True, logger=True)
+    
+    # Test methods - here we are concerned with similarity between noisy image embeddings and classification text embeddings.
+    def test_step(self, test_batch, batch_idx):
+        """
+        Grab the noisy image embeddings: S(yi), where S() is the student and yi = Distort(xi). Done on each GPU.
+        Return these to be evaluated in validation step end.
+        """
+        images_noisy, labels = test_batch
+
+        if batch_idx == 0 and self.current_epoch < 1:
+            self.logger.experiment.add_image('Test_Sample', img_grid(images_noisy), self.current_epoch)
+
+        image_features = self.encode_noisy_image(images_noisy)
+
+        return {'image_features': image_features, 'labels': labels}
+
+    def test_step_end(self, outputs):
+        """
+        Gather the noisy image features and their labels from each GPU.
+        Then calculate their similarities, convert to probabilities, and calculate accuracy on each GPU.
+        """
+        image_features_full = outputs['image_features'] #[N, embed_dim]
+        labels_full = outputs['labels'] #[n_classes]
+
+        image_logits, _ = self.forward(image_features_full) #shape [N, n_classes]
+        image_logits = image_logits.float() #convert back to floating point for precision
+        image_probs = image_logits.softmax(dim=-1) #convert logits to probabilities
+
+        self.log('test_top_1_step', self.test_top_1(image_probs, labels_full), prog_bar=False, logger=False)
+        self.log('test_top_5_step', self.test_top_5(image_probs, labels_full), prog_bar=False, logger=False)
+
+
+    def test_epoch_end(self, outputs):
+        """
+        Gather the zero-shot validation accuracies from across GPUs and reduce. 
+        """
+        self.log('test_top_1', self.test_top_1.compute(), prog_bar=True, logger=True)
+        self.log('test_top_5', self.test_top_5.compute(), prog_bar=True, logger=True)
 
 def run_noisy_clip():
     args = grab_config()
@@ -323,11 +375,11 @@ def run_noisy_clip():
     logger = TensorBoardLogger(
         save_dir=args.logdir,
         version=args.experiment_name,
-        name='NoisyCLIP_Logs'
+        name='Logs'
     )
     trainer = Trainer.from_argparse_args(args, logger=logger)
 
-    trainer.fit(model, dataset)
+    trainer.test(model, datamodule=dataset)
 
 def grab_config():
     parser = argparse.ArgumentParser(description="NoisyCLIP")

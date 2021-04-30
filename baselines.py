@@ -1,43 +1,63 @@
 import torch
 from torch.utils.data import DataLoader
 import torch.nn as nn
-import torchvision
+import torchvision.models as models
+
 import argparse
-import os
+import numpy as np
+
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.metrics import Accuracy
-import torchvision.models as models
-from utils import img_grid, yaml_config_hook, top_k_accuracy, ImageNetDistortTrain, ImageNetDistortVal, ImageNet100, ImageNetBaseTransformVal, ImageNetBaseTransform
-import clip
-import numpy as np
-import shutil
 
+from utils import *
+import clip
 
 class CLIP_finetune(nn.Module):
     def __init__(self, args):
         super(CLIP_finetune, self).__init__()
 
-        self.baseclip = clip.load(args.clip_model, device='cpu', jit=False)[0].visual
-        self.baseclip.train()
+        self.args = args
 
+        #grab the clip model
+        self.feature_extractor = clip.load(args.clip_model, device='cpu', jit=False)[0].visual
+
+         #grab the input dimension to the final layer
         if args.clip_model == 'ViT-B/32' or args.clip_model == 'RN101':
-            self.output = nn.Linear(512, args.num_classes)
+            num_filters = 512
         elif args.clip_model == 'RN50':
-            self.output = nn.Linear(1024, args.num_classes)
+            num_filters = 1024
         elif args.clip_model == 'RN50x4':
-            self.output = nn.Linear(640, args.num_classes)
+            num_filters = 640
         else:
             raise ValueError("Unsupported CLIP model selected.")
         
-    def forward(self, x):
-        n = x.size(0)
-        x = self.baseclip(x)
+        self.classifier = nn.Linear(num_filters, args.num_classes) 
 
-        return self.output(x.view(n, -1).float())
+        #If we are only training the classifier, then freeze the backbone!
+        if args.freeze_backbone:
+            self.feature_extractor.eval()
+
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
+        else:
+            self.feature_extractor.train()
+        
+    def forward(self, x):
+        if self.args.freeze_backbone:
+            self.feature_extractor.eval()
+
+            with torch.no_grad():
+                features = self.feature_extractor(x).flatten(1).float()
+        
+        else:
+            self.feature_extractor.train()
+            features = self.feature_extractor(x).flatten(1).float()
+        
+        x = self.classifier(features)
+
+        return x
 
 class RESNET_finetune(nn.Module):
     def __init__(self, args):
@@ -62,8 +82,12 @@ class RESNET_finetune(nn.Module):
 
         #If we are only training the classifier, then freeze the backbone!
         if args.freeze_backbone:
+            self.feature_extractor.eval()
+
             for param in self.feature_extractor.parameters():
                 param.requires_grad = False
+        else:
+            self.feature_extractor.train()
 
     def forward(self, x):
         if self.args.freeze_backbone:
@@ -73,6 +97,7 @@ class RESNET_finetune(nn.Module):
                 features = self.feature_extractor(x).flatten(1)
         
         else:
+            self.feature_extractor.train()
             features = self.feature_extractor(x).flatten(1)
         
         x = self.classifier(features)
@@ -119,8 +144,12 @@ class Baseline(LightningModule):
 
         self.train_top_1 = Accuracy(top_k=1)
         self.train_top_5 = Accuracy(top_k=5)
+
         self.val_top_1 = Accuracy(top_k=1)
         self.val_top_5 = Accuracy(top_k=5)
+
+        self.test_top_1 = Accuracy(top_k=1)
+        self.test_top_5 = Accuracy(top_k=5)
 
     def forward(self, x):
         return self.encoder(x)
@@ -137,6 +166,7 @@ class Baseline(LightningModule):
 
         return [opt], [scheduler]
 
+    #DATALOADERS
     def train_dataloader(self):
         if self.hparams.dataset == "ImageNet100":
             train_dataset = ImageNet100(
@@ -164,7 +194,21 @@ class Baseline(LightningModule):
                                         pin_memory=True, shuffle=False)
 
         return val_dataloader
+
+    def test_dataloader(self):
+        if self.hparams.dataset == "ImageNet100":
+            test_dataset = ImageNet100(
+                root=self.hparams.dataset_dir,
+                split = 'val',
+                transform = self.val_set_transform
+            )
+
+        test_dataloader = DataLoader(test_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
+                                        pin_memory=True, shuffle=False)
+
+        return test_dataloader
     
+    #TRAINING
     def training_step(self, batch, batch_idx):
         x, y = batch
 
@@ -186,6 +230,7 @@ class Baseline(LightningModule):
         self.log("train_top_1", self.train_top_1.compute(), prog_bar=True, logger=True)
         self.log("train_top_5", self.train_top_5.compute(), prog_bar=True, logger=True)
 
+    #VALIDATION
     def validation_step(self, batch, batch_idx):
         x, y = batch
 
@@ -197,31 +242,27 @@ class Baseline(LightningModule):
 
         self.log("val_top_1", self.val_top_1(pred_probs, y), prog_bar=False, logger=False)
         self.log("val_top_5", self.val_top_5(pred_probs, y), prog_bar=False, logger=False)
-
-        # loss = self.criterion(logits, y)
-        # top_1 = top_k_accuracy(logits, y, k=1)
-        # top_5 = top_k_accuracy(logits, y, k=5)
-
-        # loss_dict = {
-        #     "val_ce_loss": loss,
-        #     "top_1": top_1,
-        #     "top_5": top_5
-        # }
-
-        # return loss_dict
     
     def validation_epoch_end(self, outputs):
-        # val_loss_mean = torch.stack([x['val_ce_loss'] for x in outputs]).sum() / self.N_val
-        # top_1_mean = torch.stack([x['top_1'] for x in outputs]).sum() / self.N_val
-        # top_5_mean = torch.stack([x['top_5'] for x in outputs]).sum() / self.N_val
-
-        # self.log("val_loss", 1 - top_5_mean, prog_bar=False, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum') #VAL_LOSS IS ACTUALLY (1 - TOP_5)
-        # self.log("top_1", top_1_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
-        # self.log("top_5", top_5_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
-        # self.log("val_ce_loss", val_loss_mean, prog_bar=True, on_step=False, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
-
         self.log("val_top_1", self.val_top_1.compute(), prog_bar=True, logger=True)
         self.log("val_top_5", self.val_top_5.compute(), prog_bar=True, logger=True)
+    
+    #TESTING
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+
+        if batch_idx == 0 and self.current_epoch == 0:
+            self.logger.experiment.add_image('Test_Sample', img_grid(x), self.current_epoch)
+
+        logits = self.forward(x)
+        pred_probs = logits.softmax(dim=-1)
+
+        self.log("test_top_1", self.test_top_1(pred_probs, y), prog_bar=False, logger=False)
+        self.log("test_top_5", self.test_top_5(pred_probs, y), prog_bar=False, logger=False)
+    
+    def test_epoch_end(self, outputs):
+        self.log("test_top_1", self.test_top_1.compute(), prog_bar=True, logger=True)
+        self.log("test_top_5", self.test_top_5.compute(), prog_bar=True, logger=True)
 
 def run_baseline(config_file, lr = 0):
     args = grab_config(config_file)
@@ -240,9 +281,10 @@ def run_baseline(config_file, lr = 0):
         version=args.experiment_name,
         name='Contrastive-Inversion'
     )
-    trainer = Trainer.from_argparse_args(args, plugins=DDPPlugin(find_unused_parameters=False), logger=logger)      
+    trainer = Trainer.from_argparse_args(args, logger=logger)      
 
     trainer.fit(model)
+    #trainer.test(model)
 
 def grab_config(config_file):
     """
@@ -262,70 +304,4 @@ def grab_config(config_file):
 
 if __name__ == "__main__":
 
-    run_baseline("RN50_sq100.yaml")
-
-"""
-def linesearch(config_file, lr):
-    args = grab_config(config_file)
-
-    #set these to be 1 for tuning
-    args.max_epochs = 1
-    args.check_val_every_n_epoch = 1
-    args.lr = lr
-
-    model = Baseline(args)
-
-    trainer = Trainer.from_argparse_args(args)
-
-    logger = TensorBoardLogger(
-        save_dir= args.logdir,
-        version=args.experiment_name,
-        name='Contrastive-Inversion'
-    )
-    trainer.logger = logger
-
-    trainer.fit(model)
-    
-    top_5 = trainer.logged_metrics["top_5"]
-
-    return top_5
-
-def main():
-    seed_everything(1234)
-
-    lrs_tune = [1e-2, 1e-3, 1e-4, 1e-5]
-
-    configurations = [
-        "RN50_blur21.yaml"
-        #"RN50_blur37.yaml",
-        #"RN50_noise01.yaml",
-        #"RN50_noise03.yaml",
-        #"RN50_noise05.yaml"
-        #"RN50_rand50.yaml",
-        #"RN50_rand75.yaml",
-        #"RN50_rand90.yaml",
-        #"RN50_sq50.yaml",
-        #"RN50_sq100.yaml"
-    ]
-
-    for config_file in configurations:
-        #track the best top_5 loss and corresponsing learning rate
-        print(config_file)
-
-        top_5_best = 0
-        lr_best = 1
-
-        for lr in lrs_tune:
-            print("TESTING LR: ", lr)
-            top_5 = linesearch(config_file, lr)
-            print("TOP 5 ACC: ", top_5)
-
-            if top_5 > top_5_best:
-                print("NEW BEST ACC")
-                top_5_best = top_5
-                lr_best = lr
-        
-        print("BEST LR: ", lr_best)
-
-        run_baseline(config_file, lr)
-"""
+    run_baseline("Clean.yaml")
