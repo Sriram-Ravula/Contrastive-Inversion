@@ -68,7 +68,7 @@ class ImageNetCLIPDataset(LightningDataModule):
             #set up the training transform and if we want a fixed mask, transfer the same mask to the validation transform
             self.train_set_transform = ImageNetDistortTrainContrastive(self.hparams)
 
-            elif self.hparams.fixed_mask:
+            if self.hparams.fixed_mask:
                 self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
             else:
                 self.val_set_transform = ImageNetDistortVal(self.hparams)
@@ -114,7 +114,7 @@ class NoisyCLIP(LightningModule):
 
         Feed original images to T() and obtain embeddings {T(x1), ..., T(xN)} and feed distorted images to S() and obtain embeddings {S(y1), ..., S(yN)}.
 
-        Maximize the similarity between the pairs {(T(x1), S(y1)), ..., (T(xN), S(yN))} while minimizing the similarity between all non-matched pairs. 
+        Maximize the similarity between the pairs {(T(x1), S(y1)), ..., (T(xN), S(yN))} while minimizing the similarity between all non-matched pairs.
         """
         super(NoisyCLIP, self).__init__()
         self.hparams = args
@@ -173,12 +173,12 @@ class NoisyCLIP(LightningModule):
             exp_sim_mat = torch.exp(sim_mat/self.hparams.loss_tau)
             mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).type_as(exp_sim_mat)
             logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
-            
-            #Grab the two off-diagonal similarities 
+
+            #Grab the two off-diagonal similarities
             part1 = torch.sum(torch.diag(logmat, diagonal=1)[np.arange(0,2*bsz,2)])
             part2 = torch.sum(torch.diag(logmat, diagonal=-1)[np.arange(0,2*bsz,2)])
 
-            #Take the mean of the two off-diagonals 
+            #Take the mean of the two off-diagonals
             loss = (part1 + part2)/2
 
         #Use the CLIP-style InfoNCE
@@ -192,7 +192,7 @@ class NoisyCLIP(LightningModule):
             part1 = F.cross_entropy(sim_mat, torch.LongTensor(np.arange(bsz)).type_as(input1))
             part2 = F.cross_entropy(sim_mat.t(), torch.LongTensor(np.arange(bsz)).type_as(input1))
 
-            #Take the mean of the two off-diagonals 
+            #Take the mean of the two off-diagonals
             loss = (part1+part2)/2
 
         #Take the simple MSE between the clean and noisy embeddings
@@ -224,7 +224,7 @@ class NoisyCLIP(LightningModule):
     def forward(self, image_features):
         """
         Given a set of noisy image embeddings, calculate the cosine similarity (scaled by temperature) of each image with each class text prompt.
-        Calculates the similarity in two ways: logits per image (size = [N, n_classes]), logits per text (size = [n_classes, N]).  
+        Calculates the similarity in two ways: logits per image (size = [N, n_classes]), logits per text (size = [n_classes, N]).
         This is mainly used for validation and classification.
 
         Args:
@@ -243,11 +243,11 @@ class NoisyCLIP(LightningModule):
 
         return logits_per_image, logits_per_text
 
-    # Training methods - here we are concerned with contrastive loss (or MSE) between clean and noisy image embeddings. 
+    # Training methods - here we are concerned with contrastive loss (or MSE) between clean and noisy image embeddings.
     def training_step(self, train_batch, batch_idx):
         """
         Takes a batch of clean and noisy images and returns their respective embeddings.
-        
+
         Returns:
             embed_clean: T(xi) where T() is the teacher and xi are clean images. Shape [N, embed_dim]
             embed_noisy: S(yi) where S() is the student and yi are noisy images. Shape [N, embed_dim]
@@ -259,12 +259,12 @@ class NoisyCLIP(LightningModule):
             embed_clean = self.baseclip.encode_image(image_clean)
 
         embed_noisy = self.encode_noisy_image(image_noisy)
-        
+
         return {'embed_clean': embed_clean, 'embed_noisy': embed_noisy}
-        
+
     def training_step_end(self, outputs):
         """
-        Given all the clean and noisy image embeddings form across GPUs from training_step, gather them onto a single GPU and calculate overall loss. 
+        Given all the clean and noisy image embeddings form across GPUs from training_step, gather them onto a single GPU and calculate overall loss.
         """
         embed_clean_full = outputs['embed_clean']
         embed_noisy_full = outputs['embed_noisy']
@@ -306,7 +306,7 @@ class NoisyCLIP(LightningModule):
 
     def validation_epoch_end(self, outputs):
         """
-        Gather the zero-shot validation accuracies from across GPUs and reduce. 
+        Gather the zero-shot validation accuracies from across GPUs and reduce.
         """
         self.log('val_top_1', self.val_top_1.compute(), prog_bar=True, logger=True)
         self.log('val_top_5', self.val_top_5.compute(), prog_bar=True, logger=True)
