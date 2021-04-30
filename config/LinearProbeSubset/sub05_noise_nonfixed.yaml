@@ -22,7 +22,7 @@ checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN1
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "gaussiannoise" #randommask or squaremask
 std: 0.5
-fixed_mask: True
+fixed_mask: False
 
 encoder: "clip"
 
@@ -35,7 +35,7 @@ subset_ratio: 0.05
 
 #logging
 log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
-row_log_interval: 1  
+row_log_interval: 1
 logdir: "/tmp/Logs"
 
 #validation
