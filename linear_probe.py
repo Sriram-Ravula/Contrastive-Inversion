@@ -43,10 +43,10 @@ class LinearProbe(LightningModule):
                 self.train_set_transform = ImageNetBaseTransform(self.hparams)
                 self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
             else:
-                #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed! 
+                #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed!
                 self.train_set_transform = ImageNetDistortTrain(self.hparams)
-            
-                if self.hparams.fixed_mask:        
+
+                if self.hparams.fixed_mask:
                     self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
                 else:
                     self.val_set_transform = ImageNetDistortVal(self.hparams)
@@ -55,7 +55,7 @@ class LinearProbe(LightningModule):
         saved_student = NoisyCLIP.load_from_checkpoint(self.hparams.checkpoint_path)
 
         self.backbone = saved_student.noisy_visual_encoder
-        self.backbone.eval() 
+        self.backbone.eval()
         for param in self.backbone.parameters():
             param.requires_grad = False
 
@@ -67,7 +67,7 @@ class LinearProbe(LightningModule):
 
         self.val_top_1 = Accuracy(top_k=1)
         self.val_top_5 = Accuracy(top_k=5)
-    
+
     def forward(self, x):
         """
         Given a set of images x with shape [N, c, h, w], get their embeddings and then logits.
@@ -81,7 +81,7 @@ class LinearProbe(LightningModule):
             noisy_embeddings = self.backbone(x.type(torch.float16))
 
         return self.output(noisy_embeddings.float())
-    
+
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.output.parameters(), lr = self.hparams.lr)
 
@@ -95,7 +95,7 @@ class LinearProbe(LightningModule):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=num_steps)
 
         return [opt], [scheduler]
-    
+
     def train_dataloader(self):
         if self.hparams.dataset == "ImageNet100":
             train_dataset = ImageNet100(
@@ -105,7 +105,7 @@ class LinearProbe(LightningModule):
             )
         N_train = len(train_dataset)
         if self.hparams.use_subset:
-            train_dataset = few_shot_dataset(train_dataset, int(np.ceil(N_train*self.hparams.subset_ratio/100)))
+            train_dataset = few_shot_dataset(train_dataset, int(np.ceil(N_train*self.hparams.subset_ratio/self.hparams.num_classes)))
 
         train_dataloader = DataLoader(train_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
                                         pin_memory=True, shuffle=True)
@@ -141,7 +141,7 @@ class LinearProbe(LightningModule):
                     on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
 
         return loss
-    
+
     def validation_step(self, batch, batch_idx):
         x, y = batch
 
@@ -153,7 +153,7 @@ class LinearProbe(LightningModule):
 
         self.log("val_top_1", self.val_top_1(pred_probs, y), prog_bar=False, logger=False)
         self.log("val_top_5", self.val_top_5(pred_probs, y), prog_bar=False, logger=False)
-    
+
     def validation_epoch_end(self, outputs):
         self.log("val_top_1", self.val_top_1.compute(), prog_bar=True, logger=True)
         self.log("val_top_5", self.val_top_5.compute(), prog_bar=True, logger=True)
