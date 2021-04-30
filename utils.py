@@ -472,33 +472,14 @@ def few_shot_dataset(dataset, num_samples, n_classes=100):
 
     for n in range(n_classes):
         #grab the indices of all the images in the current class
-        original_img_inds = [i for i, label in enumerate(dataset.targets) if label == n] 
+        original_img_inds = [i for i, label in enumerate(dataset.targets) if label == n]
 
         #grab num_samples random image indices from the class
         random_img_subset = np.random.choice(original_img_inds, size=num_samples, replace=False)
 
         #add this random subset of images from the same class to our master subset
         subset_img_indices.extend(random_img_subset)
-    
+
     few_shot_subset = Subset(dataset, subset_img_indices)
 
     return few_shot_subset
-
-def map_classes(og_classes, remap):
-    """
-    Takes a list of classes for a batch of data and a map from old to new classes.
-    Returns the re-mapped correct classes.
-
-    Arguments:
-    og_classes - the tensor of original batch labels
-    remap - the dictionary to remap classes {old_label: new_label}
-
-    Returns:
-    new_classes - a tensor of the same type as og_classes, with the new classes for the data batch
-    """
-
-    x = og_classes.cpu().numpy()
-    new_classes = torch.tensor([remap[i] for i in x])
-    new_classes = new_classes.type_as(og_classes)
-
-    return new_classes
