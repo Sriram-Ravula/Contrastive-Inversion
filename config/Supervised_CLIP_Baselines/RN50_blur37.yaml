@@ -15,13 +15,13 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "RN101_BLUR37_FIXED"
+experiment_name: "RN101_BLUR37_NONFIXED_RESET"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "gaussianblur" #randommask or squaremask
 kernel_size: 37
 sigma: 9
-fixed_mask: True
+fixed_mask: False
 
 #model - CHANGE BETWEEN RUNS
 encoder: "resnet" #'clip' or 'resnet'
