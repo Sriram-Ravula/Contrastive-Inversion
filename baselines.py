@@ -15,6 +15,13 @@ from utils import *
 import clip
 
 class CLIP_finetune(nn.Module):
+    """
+    Class for training a classifier using a CLIP model as the backbone.
+    Choose between freezing the backbone and only training classifier layer or training the entire model.
+
+    Args:
+        args - an object containing the hyperparams for this model
+    """
     def __init__(self, args):
         super(CLIP_finetune, self).__init__()
 
@@ -45,6 +52,16 @@ class CLIP_finetune(nn.Module):
             self.feature_extractor.train()
         
     def forward(self, x):
+        """
+        Given an image x, calculates logits(x) for the model.
+        If we are freezing the backbone, makes sure that only the classifier layer retains gradients. 
+
+        Args:
+            x - the image to classify (shape [batch_size, num_channels, height, width])
+        
+        Returns:
+            Logits(x) for the current model (shape [batch_size, num_classes])
+        """
         if self.args.freeze_backbone:
             self.feature_extractor.eval()
 
@@ -60,6 +77,14 @@ class CLIP_finetune(nn.Module):
         return x
 
 class RESNET_finetune(nn.Module):
+    """
+    Class for training a classifier using a Resnet model as the backbone.
+    Choose between freezing the backbone and only training classifier layer or training the entire model.
+    Choose between random initialization or torchvision initialization (pre-trained on ImageNet).
+
+    Args:
+        args - an object containing the hyperparams for this model
+    """
     def __init__(self, args):
         super(RESNET_finetune, self).__init__()
 
@@ -90,6 +115,16 @@ class RESNET_finetune(nn.Module):
             self.feature_extractor.train()
 
     def forward(self, x):
+        """
+        Given an image x, calculates logits(x) for the model.
+        If we are freezing the backbone, makes sure that only the classifier layer retains gradients. 
+
+        Args:
+            x - the image to classify (shape [batch_size, num_channels, height, width])
+        
+        Returns:
+            Logits(x) for the current model (shape [batch_size, num_classes])
+        """
         if self.args.freeze_backbone:
             self.feature_extractor.eval()
 
@@ -106,6 +141,9 @@ class RESNET_finetune(nn.Module):
 
 
 class Baseline(LightningModule):
+    """
+    Class for training a classification model on distorted ImageNet inan end-to-end fashion.
+    """
     def __init__(self, args):
         super(Baseline, self).__init__()
 
@@ -210,6 +248,17 @@ class Baseline(LightningModule):
     
     #TRAINING
     def training_step(self, batch, batch_idx):
+        """
+        Given a batch of images, train the model for one step.
+        Calculates the crossentropy loss as well as top_1 and top_5 per batch
+
+        Inputs:
+            batch - the images to train on, shape [batch_size, num_channels, height, width]
+            batch_idx - the index of the current batch
+        
+        Returns:
+            loss - the crossentropy loss between the model's logits and the true classes of the inputs
+        """
         x, y = batch
 
         if batch_idx == 0 and self.current_epoch == 0:
@@ -230,6 +279,9 @@ class Baseline(LightningModule):
         self.log("train_top_1", self.train_top_1.compute(), prog_bar=True, logger=True)
         self.log("train_top_5", self.train_top_5.compute(), prog_bar=True, logger=True)
 
+        self.train_top_1.reset()
+        self.train_top_5.reset()
+
     #VALIDATION
     def validation_step(self, batch, batch_idx):
         x, y = batch
@@ -246,6 +298,9 @@ class Baseline(LightningModule):
     def validation_epoch_end(self, outputs):
         self.log("val_top_1", self.val_top_1.compute(), prog_bar=True, logger=True)
         self.log("val_top_5", self.val_top_5.compute(), prog_bar=True, logger=True)
+
+        self.val_top_1.reset()
+        self.val_top_5.reset()
     
     #TESTING
     def test_step(self, batch, batch_idx):
@@ -264,8 +319,11 @@ class Baseline(LightningModule):
         self.log("test_top_1", self.test_top_1.compute(), prog_bar=True, logger=True)
         self.log("test_top_5", self.test_top_5.compute(), prog_bar=True, logger=True)
 
-def run_baseline(config_file, lr = 0):
-    args = grab_config(config_file)
+        self.test_top_1.reset()
+        self.test_top_5.reset()
+
+def run_baseline(lr = 0):
+    args = grab_config()
 
     if lr == 0:
         lr = args.lr
@@ -284,9 +342,8 @@ def run_baseline(config_file, lr = 0):
     trainer = Trainer.from_argparse_args(args, logger=logger)      
 
     trainer.fit(model)
-    #trainer.test(model)
 
-def grab_config(config_file):
+def grab_config():
     """
     Given a filename, grab the corresponsing config file and return it 
     """
