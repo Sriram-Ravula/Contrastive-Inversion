@@ -160,6 +160,8 @@ class LinearProbe(LightningModule):
     def validation_epoch_end(self, outputs):
         self.log("val_top_1", self.val_top_1.compute(), prog_bar=True, logger=True)
         self.log("val_top_5", self.val_top_5.compute(), prog_bar=True, logger=True)
+        self.val_top_1.reset()
+        self.val_top_5.reset()
 
     def test_step(self, batch, batch_idx):
         x, y = batch
@@ -173,6 +175,8 @@ class LinearProbe(LightningModule):
     def test_epoch_end(self, outputs):
         self.log("test_top_1", self.test_top_1.compute(), prog_bar=True, logger=True)
         self.log("test_top_5", self.test_top_5.compute(), prog_bar=True, logger=True)
+        self.test_top_1.reset()
+        self.test_top_5.reset()
 
 def grab_config():
     parser = argparse.ArgumentParser(description="NoisyCLIP")
