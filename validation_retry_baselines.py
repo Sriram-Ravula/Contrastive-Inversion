@@ -29,13 +29,6 @@ from torch.utils.data  import random_split, DataLoader
 from noisy_clip_dataparallel import NoisyCLIP, ContrastiveUnsupervisedDataset, ImageNetCLIPDataset
 from linear_probe import LinearProbe
 
-class ImageNetCLIPDatasetTesting(ImageNetCLIPDataset):
-    def __init__(self, args):
-        super(ImageNetCLIPDatasetTesting,self).__init__(args)
-
-    def test_dataloader(self):
-        return self.val_dataloader()
-
 class NoisyCLIPTesting(LightningModule):
 
     def __init__(self, args, ckpt_file):
