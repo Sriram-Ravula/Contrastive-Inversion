@@ -293,6 +293,8 @@ class NoisyCLIP(LightningModule):
         """
         self.log('val_top_1', self.val_top_1.compute(), prog_bar=True, logger=True)
         self.log('val_top_5', self.val_top_5.compute(), prog_bar=True, logger=True)
+        self.val_top_1.reset()
+        self.val_top_5.reset()
 
 def run_noisy_clip():
     args = grab_config()

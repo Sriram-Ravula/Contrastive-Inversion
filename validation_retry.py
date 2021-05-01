@@ -39,18 +39,20 @@ class ImageNetCLIPDatasetTesting(ImageNetCLIPDataset):
 class NoisyCLIPTesting(LightningModule):
 
     def __init__(self, args, ckpt_file):
-        super(ImageNetCLIPDatasetTesting,self).__init__()
+        super(NoisyCLIPTesting,self).__init__()
         self.backbone = NoisyCLIP.load_from_checkpoint(ckpt_file).eval()
         self.test_top_1 = Accuracy(top_k=1)
         self.test_top_5 = Accuracy(top_k=5)
 
     def forward(self, x):
-        return self.backbone(x)
+        embed = self.backbone.encode_noisy_image(x)
+        return self.backbone(embed)[0]
 
     def test_step(self, batch, batch_idx):
         x, y = batch
 
         logits = self.forward(x)
+        logits = logits.float()
         pred_probs = logits.softmax(dim=-1)
 
         self.log("test_top_1", self.test_top_1(pred_probs, y), prog_bar=False, logger=False)
@@ -77,7 +79,7 @@ def grab_config():
 
 def noise_level_eval():
     args = grab_config()
-
+    args.distributed_backend='ddp'
     seed_everything(args.seed)
 
     logger = TensorBoardLogger(
@@ -95,7 +97,7 @@ def noise_level_eval():
     dataset.setup()
     model = NoisyCLIPTesting(args, checkpoint_file)
 
-    trainer.test(model, dataset)
+    trainer.test(model, datamodule=dataset)
 
 if __name__ == "__main__":
     noise_level_eval()

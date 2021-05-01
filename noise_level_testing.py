@@ -77,10 +77,11 @@ def noise_level_eval():
         version=args.experiment_name,
         name='NoisyCLIP_Logs'
     )
-    trainer = Trainer.from_argparse_args(args, logger=logger)
-    saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
-
+   
     for noise_level in args.noise_levels:
+        trainer = Trainer.from_argparse_args(args, logger=logger)
+        saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
+
         if args.distortion == "squaremask":
             args.length = noise_level
         elif args.distortion == "randommask":

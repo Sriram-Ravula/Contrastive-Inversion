@@ -16,15 +16,23 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "rand_nonfixed"
-checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Linear_Subset/sub10_rand_nonfixed/checkpoints/epoch=24-step=9924.ckpt"
+experiment_name: "blur37"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/Noisy_RN101_blur37_contrastive/checkpoints/epoch=24-step=12374.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
-distortion: "randommask" #randommask or squaremask
-noise_levels: [0.5,0.75,0.9,0.95,0.99]
+distortion: "gaussianblur" #randommask or squaremask
+kernel_size: 37 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
+sigma: 9
 fixed_mask: False
 
 encoder: "clip"
+
+#training
+max_epochs: 25
+lr: 0.001
+batch_size: 8 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,
+use_subset: True
+subset_ratio: 0.01
 
 #logging
 log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
