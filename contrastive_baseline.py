@@ -114,7 +114,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         return DataLoader(self.test_data, batch_size=2*self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
 
 
-class NoisyCLIP(LightningModule):
+class NoisyBaseline(LightningModule):
     def __init__(self, args):
         """
         A class that trains OpenAI CLIP in a student-teacher fashion to classify distorted images.
@@ -134,37 +134,30 @@ class NoisyCLIP(LightningModule):
         #(1) Load the correct dataset class names
         if self.hparams.dataset == "Imagenet-100":
             self.N_val = 5000 # Default ImageNet validation set, only 100 classes.
-
-            #we need a file which gives us the text labels for classes in order to do zero-shot classification!
-            if self.hparams.mapping_and_text_file is None:
-                raise ValueError('No file from which to read text labels was specified.')
-
-            text_labels = pickle.load(open(self.hparams.mapping_and_text_file, 'rb'))
-            self.text_list = ['A photo of '+label.strip().replace('_',' ') for label in text_labels] #list of text labels for our classes, each called "a photo of [class name]"
         else:
             raise NotImplementedError('Handling of the dataset not implemented yet.')
 
         #(2) set up the teacher CLIP network - freze it and don't use gradients!
-        self.baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0]
-        self.baseclip.eval()
-        self.baseclip.requires_grad_(False)
-
-        with torch.no_grad():
-            self.text_features = self.baseclip.encode_text(clip.tokenize(self.text_list)) #we pre-calculate the text features for every class prompt!
+        #Grab the correct Resnet model
+        if args.resnet_model == "50":
+            backbone = models.resnet50(pretrained=True)
+        elif args.resnet_model == "101":
+            backbone = models.resnet101(pretrained=True)
+        self.teacher = list(backbone.children())[:-1]
+        self.teacher.eval()
+        self.teacher.requires_grad_(False)
 
         #(3) set up the student CLIP network - unfreeze it and use gradients!
-        self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0].visual
-        self.noisy_visual_encoder.train()
-        self.noisy_visual_encoder.requires_grad_(True)
+        if args.resnet_model == "50":
+            backbone = models.resnet50(pretrained=True)
+        elif args.resnet_model == "101":
+            backbone = models.resnet101(pretrained=True)
+        self.student = list(backbone.children())[:-1]
+        self.student.train()
+        self.student.requires_grad_(True)
 
         #(4) set up the training and validation losses!
         self.logit_scale = self.hparams.logit_scale #Tau in the InfoNCE loss - temperature
-
-        self.val_top_1 = Accuracy(top_k=1)
-        self.val_top_5 = Accuracy(top_k=5)
-
-        self.test_top_1 = Accuracy(top_k=1)
-        self.test_top_5 = Accuracy(top_k=5)
 
     def criterion(self, input1, input2, reduction='mean'):
         """
