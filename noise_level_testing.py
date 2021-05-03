@@ -26,8 +26,9 @@ from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.metrics import Accuracy
 from torch.utils.data  import random_split, DataLoader
 
-from noisy_clip_dataparallel import NoisyCLIP
 from linear_probe import LinearProbe
+from baselines import Baseline
+from zeroshot_validation import NoisyCLIPTesting
 
 class ImageNet100NoisyValDataset(LightningDataModule):
 
@@ -80,7 +81,13 @@ def noise_level_eval():
    
     for noise_level in args.noise_levels:
         trainer = Trainer.from_argparse_args(args, logger=logger)
-        saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
+        if args.saved_model_type == 'linear':
+            saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
+        elif args.saved_model_type == 'baseline':
+            saved_model = Baseline.load_from_checkpoint(args.checkpoint_path)
+        elif args.saved_model_type == 'zeroshot':
+            saved_model = NoisyCLIPTesting(args, args.checkpoint_path)
+            
 
         if args.distortion == "squaremask":
             args.length = noise_level

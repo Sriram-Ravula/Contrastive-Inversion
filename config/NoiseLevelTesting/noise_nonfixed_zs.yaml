@@ -17,13 +17,13 @@ distributed_backend: "ddp"
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
 experiment_name: "noise_nonfixed"
-checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Linear_Subset/noise05_nonfixed/checkpoints/epoch=9-step=3969.ckpt"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/Noisy_RN101_noise05_contrastive_nonfixed/checkpoints/epoch=24-step=12374.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "gaussiannoise" #randommask or squaremask
 noise_levels: [0.3,0.4,0.5,0.6,0.7]
 fixed_mask: False
-saved_model_type: "linear"
+saved_model_type: "zeroshot"
 
 encoder: "clip"
 

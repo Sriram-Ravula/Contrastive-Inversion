@@ -77,7 +77,7 @@ def grab_config():
 
     return args
 
-def noise_level_eval():
+def zeroshot_eval():
     args = grab_config()
     args.distributed_backend='ddp'
     seed_everything(args.seed)
@@ -100,4 +100,4 @@ def noise_level_eval():
     trainer.test(model, datamodule=dataset)
 
 if __name__ == "__main__":
-    noise_level_eval()
+    zeroshot_eval()

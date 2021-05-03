@@ -27,7 +27,7 @@ fixed_mask: False
 encoder: "clip"
 
 #training
-max_epochs: 25
+max_epochs: 10
 lr: 0.001
 batch_size: 8 #Small for linear probe
 use_subset: True
