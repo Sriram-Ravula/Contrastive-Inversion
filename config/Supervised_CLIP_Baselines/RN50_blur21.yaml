@@ -15,7 +15,7 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "CLIP_RN101_BLUR21_NONFIXED_RESET"
+experiment_name: "CLIP_RN101_BLUR21_NONFIXED_RESET_NOTRAIN"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "gaussianblur" #randommask or squaremask

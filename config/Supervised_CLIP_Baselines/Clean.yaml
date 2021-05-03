@@ -15,7 +15,7 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "CLIP_RN101_CLEAN_TEST_LINEAR"
+experiment_name: "CLIP_RN101_CLEAN_LINEAR"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "None" #randommask or squaremask
