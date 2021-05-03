@@ -48,8 +48,8 @@ class CLIP_finetune(nn.Module):
 
             for param in self.feature_extractor.parameters():
                 param.requires_grad = False
-        else:
-            self.feature_extractor.train()
+        # else:
+        #     self.feature_extractor.train()
         
     def forward(self, x):
         """
@@ -69,7 +69,7 @@ class CLIP_finetune(nn.Module):
                 features = self.feature_extractor(x).flatten(1).float()
         
         else:
-            self.feature_extractor.train()
+            #self.feature_extractor.train()
             features = self.feature_extractor(x).flatten(1).float()
         
         x = self.classifier(features)
@@ -111,8 +111,8 @@ class RESNET_finetune(nn.Module):
 
             for param in self.feature_extractor.parameters():
                 param.requires_grad = False
-        else:
-            self.feature_extractor.train()
+        # else:
+        #     self.feature_extractor.train()
 
     def forward(self, x):
         """
@@ -132,7 +132,7 @@ class RESNET_finetune(nn.Module):
                 features = self.feature_extractor(x).flatten(1)
         
         else:
-            self.feature_extractor.train()
+            #self.feature_extractor.train()
             features = self.feature_extractor(x).flatten(1)
         
         x = self.classifier(features)
@@ -279,8 +279,8 @@ class Baseline(LightningModule):
         self.log("train_top_1", self.train_top_1.compute(), prog_bar=True, logger=True)
         self.log("train_top_5", self.train_top_5.compute(), prog_bar=True, logger=True)
 
-        self.train_top_1.reset()
-        self.train_top_5.reset()
+        #self.train_top_1.reset()
+        #self.train_top_5.reset()
 
     #VALIDATION
     def validation_step(self, batch, batch_idx):
@@ -299,8 +299,8 @@ class Baseline(LightningModule):
         self.log("val_top_1", self.val_top_1.compute(), prog_bar=True, logger=True)
         self.log("val_top_5", self.val_top_5.compute(), prog_bar=True, logger=True)
 
-        self.val_top_1.reset()
-        self.val_top_5.reset()
+        #self.val_top_1.reset()
+        #self.val_top_5.reset()
     
     #TESTING
     def test_step(self, batch, batch_idx):
@@ -319,8 +319,8 @@ class Baseline(LightningModule):
         self.log("test_top_1", self.test_top_1.compute(), prog_bar=True, logger=True)
         self.log("test_top_5", self.test_top_5.compute(), prog_bar=True, logger=True)
 
-        self.test_top_1.reset()
-        self.test_top_5.reset()
+        #self.test_top_1.reset()
+        #self.test_top_5.reset()
 
 def run_baseline(lr = 0):
     args = grab_config()
