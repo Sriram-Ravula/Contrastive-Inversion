@@ -15,17 +15,17 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "RN101_RAND50_FIXED"
+experiment_name: "CLIP_RN101_RAND50_NONFIXED_RESET"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "randommask" #randommask or squaremask
 percent_missing: 0.5 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
-fixed_mask: True
+fixed_mask: False
 
 #model - CHANGE BETWEEN RUNS
-encoder: "resnet" #'clip' or 'resnet'
-resnet_model: "101" #50 or 101
-#clip_model: 'RN101' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if encoder: "clip"
+encoder: "clip" #'clip' or 'resnet'
+#resnet_model: "101" #50 or 101
+clip_model: 'RN101' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if encoder: "clip"
 freeze_backbone: False
 
 #training
