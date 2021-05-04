@@ -18,8 +18,8 @@ class RandomMask(object):
         fixed: whether the mask is fixed for all images
     """
 
-    def __init__(self, percent_missing, fixed=False):
-        assert isinstance(percent_missing, float)
+    def __init__(self, percent_missing, fixed=False, lims=None):
+        assert isinstance(percent_missing, float) or isinstance(percent_missing, list)
 
         self.percent_missing = percent_missing
         self.fixed = fixed
@@ -30,7 +30,12 @@ class RandomMask(object):
         if self.fixed and self.mask is not None:
             return image*self.mask.view(h,w)
 
-        removed_secs = np.random.choice(h*w, int(h*w*self.percent_missing), replace=False)
+        if isinstance(self.percent_missing, float):
+            removed_num = int(h*w*self.percent_missing)
+        else:
+            removed_percent = np.random.uniform(self.percent_missing[0], self.percent_missing[1])
+            removed_num = int(h*w*removed_percent)
+        removed_secs = np.random.choice(h*w, removed_num, replace=False)
         mask = torch.ones(h*w)
         mask[removed_secs] = 0
         if self.fixed:
