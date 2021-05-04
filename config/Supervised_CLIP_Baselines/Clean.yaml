@@ -15,15 +15,15 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "CLIP_RN101_CLEAN_TEST_LINEAR"
+experiment_name: "RN101_CLEAN_LINEAR"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "None" #randommask or squaremask
 
 #model - CHANGE BETWEEN RUNS
-encoder: "clip" #'clip' or 'resnet'
-#resnet_model: "101" #50 or 101
-clip_model: 'RN101' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if encoder: "clip"
+encoder: "resnet" #'clip' or 'resnet'
+resnet_model: "101" #50 or 101
+#clip_model: 'RN101' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if encoder: "clip"
 freeze_backbone: True
 
 #training

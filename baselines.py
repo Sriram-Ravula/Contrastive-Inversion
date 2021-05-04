@@ -66,11 +66,11 @@ class CLIP_finetune(nn.Module):
             self.feature_extractor.eval()
 
             with torch.no_grad():
-                features = self.feature_extractor(x).flatten(1).float()
+                features = self.feature_extractor(x.type(torch.float16)).flatten(1).float()
         
         else:
             #self.feature_extractor.train()
-            features = self.feature_extractor(x).flatten(1).float()
+            features = self.feature_extractor(x.type(torch.float16)).flatten(1).float()
         
         x = self.classifier(features)
 
