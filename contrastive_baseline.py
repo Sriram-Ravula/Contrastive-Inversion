@@ -64,17 +64,14 @@ class ImageNetCLIPDataset(LightningDataModule):
         if self.hparams.distortion == "None":
             self.train_set_transform = ImageNetBaseTrainContrastive(self.hparams)
             self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
-            self.test_set_transform = ImageNetBaseTransformVal(self.hparams)
         else:
             #set up the training transform and if we want a fixed mask, transfer the same mask to the validation transform
             self.train_set_transform = ImageNetDistortTrainContrastive(self.hparams)
 
             if self.hparams.fixed_mask:
                 self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
-                self.test_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
             else:
-                self.val_set_transform = ImageNetDistortVal(self.hparams)
-                self.test_set_transform = ImageNetDistortVal(self.hparams)
+                self.val_set_transform = ImageNetDistortValContrastive(self.hparams)
 
     def setup(self, stage=None):
         train_data = ImageNet100(
@@ -85,12 +82,7 @@ class ImageNetCLIPDataset(LightningDataModule):
         self.val_data = ImageNet100(
             root=self.hparams.dataset_dir,
             split="val",
-            transform=self.val_set_transform
-        )
-        self.test_data = ImageNet100(
-            root=self.hparams.dataset_dir,
-            split="val",
-            transform=self.test_set_transform
+            transform=None
         )
 
         filename = self.hparams.dataset_dir + self.hparams.subset_file_name
@@ -99,22 +91,16 @@ class ImageNetCLIPDataset(LightningDataModule):
         text_labels = list(train_data.idx_to_class.values())
 
         self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_contrastive=self.train_set_transform, return_label=True)
-
-        # Save labels to be reused.
-        if self.hparams.save_mapping_and_text:
-            pickle.dump(text_labels, open(self.hparams.mapping_and_text_file, 'wb'))
+        self.val_contrastive = ContrastiveUnsupervisedDataset(val_data, transform_contrastive=self.val_set_transform, return_label=True)
 
     def train_dataloader(self):
         return DataLoader(self.train_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_data, batch_size=2*self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
+        return DataLoader(self.val_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
     
-    def test_dataloader(self):
-        return DataLoader(self.test_data, batch_size=2*self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
 
-
-class NoisyBaseline(LightningModule):
+class NoisyContrastiveBaseline(LightningModule):
     def __init__(self, args):
         """
         A class that trains OpenAI CLIP in a student-teacher fashion to classify distorted images.
@@ -137,7 +123,7 @@ class NoisyBaseline(LightningModule):
         else:
             raise NotImplementedError('Handling of the dataset not implemented yet.')
 
-        #(2) set up the teacher CLIP network - freze it and don't use gradients!
+        #(2) set up the teacher RN network - freeze it and don't use gradients!
         #Grab the correct Resnet model
         if args.resnet_model == "50":
             backbone = models.resnet50(pretrained=True)
@@ -213,7 +199,7 @@ class NoisyBaseline(LightningModule):
 
 
     def configure_optimizers(self):
-        opt = torch.optim.Adam(self.noisy_visual_encoder.parameters(), lr = self.hparams.lr)
+        opt = torch.optim.Adam(self.student.parameters(), lr = self.hparams.lr)
 
         num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus) #divide N_train by number of distributed iters
 
@@ -226,29 +212,11 @@ class NoisyBaseline(LightningModule):
         Return S(yi) where S() is the student network and yi is distorted images.
         """
 
-        return self.noisy_visual_encoder(image.type(torch.float16))
+        return self.student(image)
 
     def forward(self, image_features):
-        """
-        Given a set of noisy image embeddings, calculate the cosine similarity (scaled by temperature) of each image with each class text prompt.
-        Calculates the similarity in two ways: logits per image (size = [N, n_classes]), logits per text (size = [n_classes, N]).
-        This is mainly used for validation and classification.
 
-        Args:
-            image_features: the noisy image embeddings S(yi) where S() is the student and yi = Distort(xi). Shape [N, embedding_dim]
-        """
-        #load the pre-computed text features and load them on the correct device
-        text_features = self.text_features.type_as(image_features)
-
-        # normalized features
-        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-
-        # cosine similarity as logits
-        logits_per_image = self.logit_scale * image_features.type(torch.float16) @ text_features.type(torch.float16).t() # Funny thing, here the original code spells 'iamge' instead of image. Hidden copyright protection? :p
-        logits_per_text = self.logit_scale * text_features.type(torch.float16) @ image_features.type(torch.float16).t()
-
-        return logits_per_image, logits_per_text
+        return self.student(image)
 
     # Training methods - here we are concerned with contrastive loss (or MSE) between clean and noisy image embeddings.
     def training_step(self, train_batch, batch_idx):
@@ -261,11 +229,11 @@ class NoisyBaseline(LightningModule):
         """
         image_clean, image_noisy, _ = train_batch
 
-        self.baseclip.eval()
+        self.teacher.eval()
         with torch.no_grad():
-            embed_clean = self.baseclip.encode_image(image_clean)
+            embed_clean = self.teacher(image_clean).flatten(1)
 
-        embed_noisy = self.encode_noisy_image(image_noisy)
+        embed_noisy = self.encode_noisy_image(image_noisy).flatten(1)
 
         return {'embed_clean': embed_clean, 'embed_noisy': embed_noisy}
 
@@ -278,85 +246,38 @@ class NoisyBaseline(LightningModule):
 
         loss = self.criterion(embed_clean_full, embed_noisy_full)
 
+        self.log('train_loss', loss, prog_bar=True, logger=True, sync_dist=True, on_step=True, on_epoch=True)
+
         return loss
 
     # Validation methods - here we are concerned with similarity between noisy image embeddings and classification text embeddings.
-    def validation_step(self, test_batch, batch_idx):
+    def validation_step(self, val_batch, batch_idx):
         """
         Grab the noisy image embeddings: S(yi), where S() is the student and yi = Distort(xi). Done on each GPU.
         Return these to be evaluated in validation step end.
         """
-        images_noisy, labels = test_batch
+        image_clean, image_noisy, _ = val_batch
 
-        if batch_idx == 0 and self.current_epoch < 1:
-            self.logger.experiment.add_image('Val_Sample', img_grid(images_noisy), self.current_epoch)
+        with torch.no_grad():
+            embed_clean = self.teacher(image_clean).flatten(1)
 
-        image_features = self.encode_noisy_image(images_noisy)
+            embed_noisy = self.encode_noisy_image(image_noisy).flatten(1)
 
-        return {'image_features': image_features, 'labels': labels}
+        return {'embed_clean': embed_clean, 'embed_noisy': embed_noisy}
 
     def validation_step_end(self, outputs):
         """
         Gather the noisy image features and their labels from each GPU.
         Then calculate their similarities, convert to probabilities, and calculate accuracy on each GPU.
         """
-        image_features_full = outputs['image_features'] #[N, embed_dim]
-        labels_full = outputs['labels'] #[n_classes]
+        embed_clean_full = outputs['embed_clean']
+        embed_noisy_full = outputs['embed_noisy']
 
-        image_logits, _ = self.forward(image_features_full) #shape [N, n_classes]
-        image_logits = image_logits.float() #convert back to floating point for precision
-        image_probs = image_logits.softmax(dim=-1) #convert logits to probabilities
+        loss = self.criterion(embed_clean_full, embed_noisy_full)
 
-        self.log('val_top_1_step', self.val_top_1(image_probs, labels_full), prog_bar=False, logger=False)
-        self.log('val_top_5_step', self.val_top_5(image_probs, labels_full), prog_bar=False, logger=False)
+        self.log('val_loss', loss, prog_bar=True, logger=True, sync_dist=True, on_step=True, on_epoch=True)
 
-
-    def validation_epoch_end(self, outputs):
-        """
-        Gather the zero-shot validation accuracies from across GPUs and reduce.
-        """
-        self.log('val_top_1', self.val_top_1.compute(), prog_bar=True, logger=True)
-        self.log('val_top_5', self.val_top_5.compute(), prog_bar=True, logger=True)
-    
-    # Test methods - here we are concerned with similarity between noisy image embeddings and classification text embeddings.
-    def test_step(self, test_batch, batch_idx):
-        """
-        Grab the noisy image embeddings: S(yi), where S() is the student and yi = Distort(xi). Done on each GPU.
-        Return these to be evaluated in validation step end.
-        """
-        images_noisy, labels = test_batch
-
-        if batch_idx == 0 and self.current_epoch < 1:
-            self.logger.experiment.add_image('Test_Sample', img_grid(images_noisy), self.current_epoch)
-
-        image_features = self.encode_noisy_image(images_noisy)
-
-        return {'image_features': image_features, 'labels': labels}
-
-    def test_step_end(self, outputs):
-        """
-        Gather the noisy image features and their labels from each GPU.
-        Then calculate their similarities, convert to probabilities, and calculate accuracy on each GPU.
-        """
-        image_features_full = outputs['image_features'] #[N, embed_dim]
-        labels_full = outputs['labels'] #[n_classes]
-
-        image_logits, _ = self.forward(image_features_full) #shape [N, n_classes]
-        image_logits = image_logits.float() #convert back to floating point for precision
-        image_probs = image_logits.softmax(dim=-1) #convert logits to probabilities
-
-        self.log('test_top_1_step', self.test_top_1(image_probs, labels_full), prog_bar=False, logger=False)
-        self.log('test_top_5_step', self.test_top_5(image_probs, labels_full), prog_bar=False, logger=False)
-
-
-    def test_epoch_end(self, outputs):
-        """
-        Gather the zero-shot validation accuracies from across GPUs and reduce. 
-        """
-        self.log('test_top_1', self.test_top_1.compute(), prog_bar=True, logger=True)
-        self.log('test_top_5', self.test_top_5.compute(), prog_bar=True, logger=True)
-
-def run_noisy_clip():
+def run_noisy_student():
     args = grab_config()
 
     seed_everything(args.seed)
@@ -372,7 +293,7 @@ def run_noisy_clip():
     )
     trainer = Trainer.from_argparse_args(args, logger=logger)
 
-    trainer.test(model, datamodule=dataset)
+    trainer.fit(model, dataset)
 
 def grab_config():
     parser = argparse.ArgumentParser(description="NoisyCLIP")
@@ -388,4 +309,4 @@ def grab_config():
     return args
 
 if __name__ == "__main__":
-    run_noisy_clip()
+    run_noisy_student()

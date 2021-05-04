@@ -252,6 +252,44 @@ class ImageNetDistortTrainContrastive:
         x_noisy = self.normalize(self.distortion(x_temp))
         return x_clean, x_noisy
 
+class ImageNetDistortValContrastive:
+    """
+    Torchvision composition of transforms to produce ImageNet images with a distortion.
+    This explicitly returns a pair of images (clean, noisy).
+    """
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
+        self.normalize = normalize
+
+        if args.distortion == "squaremask":
+            distortion = SquareMask(length=args.length, offset=args.offset, fixed = args.fixed_mask)
+        elif args.distortion == "randommask":
+            distortion = RandomMask(percent_missing=args.percent_missing, fixed = args.fixed_mask)
+        elif args.distortion == "gaussiannoise":
+            distortion = GaussianNoise(std=args.std, fixed=args.fixed_mask)
+        elif args.distortion == "gaussianblur":
+            distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
+        self.distortion = distortion
+
+        self.transform_common = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor()
+        ])
+
+    def __call__(self, x):
+        x_temp = self.transform_common(x)
+        x_clean = self.normalize(x_temp)
+        x_noisy = self.normalize(self.distortion(x_temp))
+        return x_clean, x_noisy
+
 
 class ImageNetDistortTrain:
     """
