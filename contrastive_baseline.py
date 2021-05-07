@@ -15,7 +15,9 @@ import pickle
 from tqdm import tqdm
 
 import torch
+import torch.nn as nn
 import torchvision
+import torchvision.models as models
 
 from utils import *
 
@@ -79,7 +81,7 @@ class ImageNetCLIPDataset(LightningDataModule):
             split="train",
             transform=None
         )
-        self.val_data = ImageNet100(
+        val_data = ImageNet100(
             root=self.hparams.dataset_dir,
             split="val",
             transform=None
@@ -113,7 +115,7 @@ class NoisyContrastiveBaseline(LightningModule):
 
         Maximize the similarity between the pairs {(T(x1), S(y1)), ..., (T(xN), S(yN))} while minimizing the similarity between all non-matched pairs.
         """
-        super(NoisyCLIP, self).__init__()
+        super(NoisyContrastiveBaseline, self).__init__()
         self.hparams = args
         self.world_size = self.hparams.num_nodes * self.hparams.gpus
 
@@ -129,7 +131,8 @@ class NoisyContrastiveBaseline(LightningModule):
             backbone = models.resnet50(pretrained=True)
         elif args.resnet_model == "101":
             backbone = models.resnet101(pretrained=True)
-        self.teacher = list(backbone.children())[:-1]
+        layers = list(backbone.children())[:-1]
+        self.teacher = nn.Sequential(*layers)
         self.teacher.eval()
         self.teacher.requires_grad_(False)
 
@@ -138,14 +141,12 @@ class NoisyContrastiveBaseline(LightningModule):
             backbone = models.resnet50(pretrained=True)
         elif args.resnet_model == "101":
             backbone = models.resnet101(pretrained=True)
-        self.student = list(backbone.children())[:-1]
+        layers = list(backbone.children())[:-1]
+        self.student = nn.Sequential(*layers)
         self.student.train()
         self.student.requires_grad_(True)
 
-        #(4) set up the training and validation losses!
-        self.logit_scale = self.hparams.logit_scale #Tau in the InfoNCE loss - temperature
-
-    def criterion(self, input1, input2, reduction='mean'):
+    def criterion(self, input1, input2, reduction='sum'):
         """
         Args:
             input1: Embeddings of the clean/noisy images from the teacher/student. Size [N, embedding_dim].
@@ -214,7 +215,7 @@ class NoisyContrastiveBaseline(LightningModule):
 
         return self.student(image)
 
-    def forward(self, image_features):
+    def forward(self, image):
 
         return self.student(image)
 
@@ -284,7 +285,7 @@ def run_noisy_student():
 
     dataset = ImageNetCLIPDataset(args)
     dataset.setup()
-    model = NoisyCLIP(args)
+    model = NoisyContrastiveBaseline(args)
 
     logger = TensorBoardLogger(
         save_dir=args.logdir,
