@@ -8,6 +8,7 @@ This is the code for our project "Creating Robust Representations from Pre-Train
 In order to run the code for our models, it is necessary to install ```pytorch_lightning``` and all of its dependencies. Moreover, it is necessary that the following files from the OpenAI CLIP repository (https://github.com/openai/CLIP) are added, along with their respective requirements:
 - ```model.py```
 - ```clip.py```
+- ```simple_tokenizer.py```
 - ```bpe_simple_vocab_16e6.txt.gz```
 For simplicity, we have copied these required files into our own code.
 
