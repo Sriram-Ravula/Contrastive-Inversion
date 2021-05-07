@@ -5,14 +5,14 @@ import sys
 import shutil
 from glob import glob
 
-ORIG_IMAGENET_DIR = '../Datasets/ILSVRC/Data/CLS-LOC'
-IMAGENET100_DIR = '../Datasets/ImageNet100'
-IMAGENET100_CLASSES = 'imagenet100.txt'
+ORIG_IMAGENET_DIR = '../Datasets/ILSVRC/Data/CLS-LOC' #The path to the ImageNet dataset - should point to the CLS-LOC folder root
+IMAGENET100_DIR = '../Datasets/ImageNet100' #The destination for the new ImageNet100 folder
+IMAGENET100_CLASSES = 'imagenet100.txt' #the file with the wnid names of the classes in the imagenet subset
 ZIP_PATH = '../Datasets'
 
 def zip_imagenet100():
     """
-    Creates a zip file of the 100 class split of imagenet train and validation data
+    Creates a data folder containing a 100-class subset of ImageNet, then creates a zipped copy of it
     """
     #First make sure the directory we are given is correct!
     if not os.path.isdir(ORIG_IMAGENET_DIR):
@@ -70,33 +70,7 @@ def zip_imagenet100():
     
     #Zip the destinatio file
     shutil.make_archive(ZIP_PATH + '/ImageNet100', 'tar', IMAGENET100_DIR)
-    
-
-def main():
-    if not os.path.isdir(IMAGENET100_DIR):
-        os.mkdir(IMAGENET100_DIR)
-
-    classes = [line.strip() for line in open(IMAGENET100_CLASSES, 'r')]
-
-    train_orig_dir = os.path.join(ORIG_IMAGENET_DIR, 'train')
-    val_orig_dir = os.path.join(ORIG_IMAGENET_DIR, 'val')
-
-    train_100_dir = os.path.join(IMAGENET100_DIR, 'train')
-    val_100_dir = os.path.join(IMAGENET100_DIR, 'val')
-
-    for name in os.listdir(train_orig_dir):
-        if not os.path.isdir(name):
-            continue
-
-        if name in classes:
-            shutil.copytree(os.path.join(train_orig_dir, name), os.path.join(train_100_dir, name))
-
-    for name in os.listdir(val_orig_dir):
-        if not os.path.isdir(name):
-            continue
-
-        if name in classes:
-            shutil.copytree(os.path.join(val_orig_dir, name), os.path.join(val_100_dir, name))
 
 if __name__ == '__main__':
     zip_imagenet100()
+    
