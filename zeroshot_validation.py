@@ -29,17 +29,6 @@ from torch.utils.data  import random_split, DataLoader
 from noisy_clip_dataparallel import NoisyCLIP, ContrastiveUnsupervisedDataset, ImageNetCLIPDataset
 from linear_probe import LinearProbe
 
-class ImageNetCLIPDatasetTesting(ImageNetCLIPDataset):
-    """
-    This is an extension of the original ImageNetCLIPDataset class, which also adds an implementation for testing.
-    The testing data is simply the same as the one used for validation.
-    """
-    def __init__(self, args):
-        super(ImageNetCLIPDatasetTesting,self).__init__(args)
-
-    def test_dataloader(self):
-        return self.val_dataloader()
-
 class NoisyCLIPTesting(LightningModule):
     """
     Wrapper for the original NoisyCLIP, in order to implement testing functions.
@@ -103,7 +92,7 @@ def zeroshot_eval():
 
     trainer = Trainer.from_argparse_args(args, logger=logger)
 
-    dataset = ImageNetCLIPDatasetTesting(args)
+    dataset = ImageNetCLIPDataset(args)
     dataset.setup()
     model = NoisyCLIPTesting(args, checkpoint_file)
 
