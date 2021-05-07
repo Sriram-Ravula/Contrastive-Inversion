@@ -10,7 +10,7 @@ emb_dim: 512
 
 #distributed training - SAME BETWEEN RUNS
 num_nodes: 1
-gpus: 4
+gpus: 1
 workers: 12
 distributed_backend: "dp" #DP instead of DDP to accomodate for larger batch size
 
@@ -21,7 +21,7 @@ experiment_name: "Noisy_RN101_rand90_contrastive_nonfixed"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 encoder: "clip"
-baseclip_type: "RN101" 
+baseclip_type: "RN101"
 device: "cpu" #Original device where baseclip is loaded
 loss_type: "simclr" #can also be mse
 
@@ -31,7 +31,7 @@ percent_missing: 0.9 #only for randommask - can be float from 0 to 1 for set num
 
 lr: 0.0003
 weight_decay: 0.0001
-batch_size: 256
+batch_size: 16
 loss_tau: 0.1 #tau parameter for our loss
 logit_scale: 0.07 #logit scale for zeroshot - inherited from original CLIP
 

@@ -9,7 +9,7 @@ emb_dim: 512
 
 #distributed training - SAME BETWEEN RUNS
 num_nodes: 1
-gpus: 4
+gpus: 1
 workers: 12
 distributed_backend: "ddp"
 

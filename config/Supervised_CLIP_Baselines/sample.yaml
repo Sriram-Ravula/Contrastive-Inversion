@@ -8,7 +8,7 @@ num_classes: 100
 
 #distributed training - SAME BETWEEN RUNS
 num_nodes: 1
-gpus: 4
+gpus: 1
 workers: 12
 distributed_backend: "ddp"
 
@@ -19,7 +19,7 @@ experiment_name: "sample_baseline"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "randommask" #randommask/gaussiannoise/gaussianblur/squaremask
-percent_missing: 0.9 #only for randommask - this can be a float for fixed rate of missing pixels, or a list of two floats for a range
+percent_missing: 0.9
 fixed_mask: False
 
 #model - CHANGE BETWEEN RUNS
@@ -30,11 +30,11 @@ freeze_backbone: False
 #training
 max_epochs: 25
 lr: 0.001
-batch_size: 64 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,      
+batch_size: 16
 
 #logging
 log_save_interval: 1 #set this to be equal to num_epochs if row_log_interval is 1
-row_log_interval: 1  
+row_log_interval: 1
 logdir: "/tmp/Logs"
 
 #validation
