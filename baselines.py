@@ -12,7 +12,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.metrics import Accuracy
 
 from utils import *
-import clip
+from clip_files import clip
 
 class CLIP_finetune(nn.Module):
     """

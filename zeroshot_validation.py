@@ -1,32 +1,19 @@
 #!/usr/bin/env python
 
-import sys
-import os
 import argparse
 import numpy as np
 import torch
-from torch import Tensor
-import typing
 import torch.nn.functional as F
-import model
-import clip
-import copy
-import pickle
-from tqdm import tqdm
-
 import torch.nn as nn
-import torch
-import torchvision
 
 from utils import *
 
-from pytorch_lightning import Trainer, LightningModule, LightningDataModule, seed_everything
+from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.metrics import Accuracy
-from torch.utils.data  import random_split, DataLoader
+from torch.utils.data  import DataLoader
 
-from noisy_clip_dataparallel import NoisyCLIP, ContrastiveUnsupervisedDataset, ImageNetCLIPDataset
+from noisy_clip_dataparallel import NoisyCLIP, ImageNetCLIPDataset
 from linear_probe import LinearProbe
 
 class NoisyCLIPTesting(LightningModule):
@@ -67,6 +54,7 @@ def grab_config():
     parser = argparse.ArgumentParser(description="NoisyCLIP")
 
     parser.add_argument('--config_file')
+    parser.add_argument('--ckpt_file')
 
     config = yaml_config_hook(parser.parse_args().config_file)
     for k, v in config.items():
@@ -87,8 +75,7 @@ def zeroshot_eval():
         name='NoisyCLIP_Logs'
     )
 
-    checkpoint_folder = './Logs_RN101_Adam/'+args.experiment_name+'/checkpoints/'
-    checkpoint_file = os.path.join(checkpoint_folder, os.listdir(checkpoint_folder)[0])
+    checkpoint_file = args.ckpt_file
 
     trainer = Trainer.from_argparse_args(args, logger=logger)
 

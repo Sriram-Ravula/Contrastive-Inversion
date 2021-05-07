@@ -1,30 +1,19 @@
 #!/usr/bin/env python
 
-import sys
-import os
 import argparse
 import numpy as np
 import torch
-from torch import Tensor
 import typing
 import torch.nn.functional as F
-import model
-import clip
-import copy
+from clip_files import model, clip
 import pickle
-from tqdm import tqdm
-
-import torch
-import torchvision
 
 from utils import *
 
 from pytorch_lightning import Trainer, LightningModule, LightningDataModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.metrics import Accuracy
-from torch.utils.data  import random_split, DataLoader
-from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
+from torch.utils.data  import DataLoader
 
 class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
     """
@@ -124,7 +113,7 @@ class NoisyCLIP(LightningModule):
         self.world_size = self.hparams.num_nodes * self.hparams.gpus
 
         #(1) Load the correct dataset class names
-        if self.hparams.dataset == "Imagenet-100":
+        if self.hparams.dataset == "ImageNet100" or self.hparams.dataset == "Imagenet-100":
             self.N_val = 5000 # Default ImageNet validation set, only 100 classes.
 
             #Retrieve the text labels for classes in order to do zero-shot classification.
@@ -235,7 +224,7 @@ class NoisyCLIP(LightningModule):
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
         # cosine similarity as logits
-        logits_per_image = self.logit_scale * image_features.type(torch.float16) @ text_features.type(torch.float16).t() # Funny thing, here the original code spells 'iamge' instead of image. Hidden copyright protection? :p
+        logits_per_image = self.logit_scale * image_features.type(torch.float16) @ text_features.type(torch.float16).t()
         logits_per_text = self.logit_scale * text_features.type(torch.float16) @ image_features.type(torch.float16).t()
 
         return logits_per_image, logits_per_text

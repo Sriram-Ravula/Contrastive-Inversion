@@ -1,30 +1,14 @@
 #!/usr/bin/env python
 
-import sys
-import os
 import argparse
 import numpy as np
 import torch
-from torch import Tensor
-import typing
-import torch.nn.functional as F
-import model
-import clip
-import copy
-import pickle
-from tqdm import tqdm
-
-import torch.nn as nn
-import torch
-import torchvision
 
 from utils import *
 
-from pytorch_lightning import Trainer, LightningModule, LightningDataModule, seed_everything
+from pytorch_lightning import Trainer, LightningDataModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.plugins import DDPPlugin
-from pytorch_lightning.metrics import Accuracy
-from torch.utils.data  import random_split, DataLoader
+from torch.utils.data  import DataLoader
 
 from linear_probe import LinearProbe
 from baselines import Baseline
