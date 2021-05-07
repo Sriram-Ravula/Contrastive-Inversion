@@ -24,7 +24,7 @@ fixed_mask: False
 
 #model - CHANGE BETWEEN RUNS
 encoder: "resnet" #'clip' or 'resnet'
-clip_model: 'RN101' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if encoder: "clip"
+resnet_model: '101' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if encoder: "clip"
 freeze_backbone: False
 
 #training
