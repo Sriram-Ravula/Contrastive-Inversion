@@ -32,5 +32,6 @@ Using the following snippets of code, the experiments described in the report ca
 
 - ```python baselines.py --config_file config/Supervised_CLIP_Baselines/config.yaml```: Train a baseline model, in an end-to-end supervised fashion.
 - ```python noisy_clip_dataparallel.py --config_file config/NoisyRN101/sample.yaml```: Trains a CLIP model using contrastive learning.
+- ```python zeroshot_validation.py --config_file config/NoisyRN101/sample.yaml --ckpt_file <model.ckpt>```: Performs zeroshot evaluation of a trained clip model. The sample file to be used is the same one specified during training (for flexibility, checkpoint file provided separately).
 - ```python linear_probe.py --config_file config/LinearProbeSubset/sample.yaml```: Trains a linear probe on top of a representation learned using contrastive loss.
 - ```python noise_level_testing.py --config_file config/NoiseLevelTesting/sample.yaml```: Evaluates a trained model for various levels of noise in the dataset.
