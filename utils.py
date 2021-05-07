@@ -18,7 +18,7 @@ class RandomMask(object):
         fixed: whether the mask is fixed for all images
     """
 
-    def __init__(self, percent_missing, fixed=False, lims=None):
+    def __init__(self, percent_missing, fixed=False):
         assert isinstance(percent_missing, float) or isinstance(percent_missing, list)
 
         self.percent_missing = percent_missing
@@ -139,6 +139,7 @@ class ImageNetBaseTransform:
     """
     Torchvision composition of transforms equivalent to the one required for CLIP clean images.
     Takes a set of arguments and alters the normalization constants depending on the model being used.
+    Basic training transform with a random crop and horizointal flip.
     """
     def __init__(self, args):
         if args.encoder == "clip":
@@ -188,7 +189,7 @@ class ImageNetBaseTrainContrastive:
     """
     Torchvision composition of transforms to produce ImageNet images with a distortion.
     For training, this class will apply a random crop and random horizontal flip as well.
-    This explicitly returns a pair of images (clean, noisy).
+    This explicitly returns a pair of images (clean, clean) with the same random crop and flip.
     """
     def __init__(self, args):
         if args.encoder == "clip":
@@ -217,7 +218,7 @@ class ImageNetDistortTrainContrastive:
     """
     Torchvision composition of transforms to produce ImageNet images with a distortion.
     For training, this class will apply a random crop and random horizontal flip as well.
-    This explicitly returns a pair of images (clean, noisy).
+    This explicitly returns a pair of images (clean, noisy) with the same random crop and flip for both.
     """
     def __init__(self, args):
         if args.encoder == "clip":
@@ -255,6 +256,7 @@ class ImageNetDistortTrainContrastive:
 class ImageNetDistortValContrastive:
     """
     Torchvision composition of transforms to produce ImageNet images with a distortion.
+    For validation, there is a deterministic resizing and center crop. 
     This explicitly returns a pair of images (clean, noisy).
     """
     def __init__(self, args):
@@ -295,6 +297,7 @@ class ImageNetDistortTrain:
     """
     Torchvision composition of transforms to produce ImageNet images with a distortion.
     For training, this class will apply a random crop and random horizontal flip as well.
+    Explicitly saves the distortion as a class variable to use for fixed masks in validation transform if needed.
     """
     def __init__(self, args):
         if args.encoder == "clip":
@@ -331,6 +334,7 @@ class ImageNetDistortVal:
     """
     Torchvision composition of transforms to produce ImageNet images with a distortion.
     For validation, this class will always crop from the center of the image and NOT apply a random horizontal flip.
+    Can pass a fixed distortion from a previously-initialized training distortive transform. 
     """
     def __init__(self, args, fixed_distortion=None):
         if args.encoder == "clip":
@@ -385,7 +389,7 @@ class ImageNet100(ImageFolder):
         self.split = split
         self.transform = transform
 
-        #from the dataset fodler class, we inherit two properties
+        #from the dataset folder class, we inherit two properties
         #self.classes is a list of class names based on the folders present in our subset - actually wnids!
         #self.class_to_idx is a dict {wnid: wnid_index} where wnid_index is a number from 0 to 99
 
@@ -399,6 +403,7 @@ class ImageNet100(ImageFolder):
                              for cls in clss}
 
         #create a dictionary of UNIQUE {index: class values} where the class is the simplest form of the wnid (e.g. common name and not scientific name)
+        #this is for CLIP zero-shot classification using the simplest class name
         self.idx_to_class = {idx: cls
                              for idx, clss in enumerate(self.classes)
                              for i, cls in enumerate(clss) if i == 0}
@@ -409,10 +414,10 @@ def img_grid(data):
     Creates an 8x8 grid out of given batch of images.
 
     Arguments:
-    data - an [N, 3, H, W] tensor of images, where N >= 64. Does not have to be normalized to [0, 1] or [-1, 1]
+        data - an [N, 3, H, W] tensor of images, where N >= 64. Does not have to be normalized to [0, 1] or [-1, 1]
 
     Returns:
-    grid - an 8x8 grid of images
+        grid - an 8x8 grid of images
     """
     data = data.cpu()[0:64]
 
@@ -425,10 +430,10 @@ def yaml_config_hook(config_file):
     Custom YAML config loader, which can include other yaml files.
 
     Arguments:
-    config_file - a .yaml file with a dictionary of configuration parameters
+        config_file - a .yaml file with a dictionary of configuration parameters
 
     Returns:
-    cfg - a parseable dictionary of configuration options
+        cfg - a parseable object of configuration options
     """
 
     # load yaml files in the nested 'defaults' section, which include defaults for experiments
@@ -446,23 +451,6 @@ def yaml_config_hook(config_file):
 
     return cfg
 
-def top_k_accuracy(input, targs, k=1):
-    """
-    Computes the Top-k accuracy (target is in the top k predictions).
-
-    Arguments:
-    input - an [N, num_classes] tensor with a probability distribution over classes at each index i=1:N
-    targs - an [N] tensor with ground truth class label for each sample i=1:N
-    k - the k for the top-k values to take from input
-
-    Returns:
-    top_k_sum - The top-k sum of inputs relative to targs. To get accuracy, divide by the number of input samples
-    """
-    input = input.topk(k=k, dim=-1)[1]
-    targs = targs.unsqueeze(dim=-1).expand_as(input)
-
-    return (input == targs).max(dim=-1)[0].float().sum()
-
 def get_subset(dataset, filename, return_class_labels=False):
     """
     Takes an original dataset and the name of a file with a subset of the original classes in the dataset.
@@ -470,14 +458,14 @@ def get_subset(dataset, filename, return_class_labels=False):
     labels as text, if desired).
 
     Arguments:
-    dataset - the name of the dataset (currently only ImageNet supported)
-    filename - the path to the text file containing the subset of data classes we want to keep
-    return_class_labels - whether to return the class labels as text or not
+        dataset - the name of the dataset (currently only ImageNet supported)
+        filename - the path to the text file containing the subset of data classes we want to keep
+        return_class_labels - whether to return the class labels as text or not
 
     Returns:
-    ds_subset - the subset of the original dataset, keeping only samples with classes matching those in filename
-    og_to_new_dict - dictionary of {old_label: new_label}
-    text_labels - list of labels as text (only returned if return_class_labels=True)
+        ds_subset - the subset of the original dataset, keeping only samples with classes matching those in filename
+        og_to_new_dict - dictionary of {old_label: new_label}
+        text_labels - list of labels as text (only returned if return_class_labels=True)
     """
 
     with open(filename) as f:
@@ -509,6 +497,15 @@ def get_subset(dataset, filename, return_class_labels=False):
 def few_shot_dataset(dataset, num_samples, n_classes=100):
     """
     A method to randomly subset the classes in a given dataset, with an equal number of samples per class in the subset.
+    Used mainly for few-shot linear evaluation.
+
+    Args:
+        dataset - the torch dataset to subset
+        num_samples - the number of samples to keep in each class
+        n_classes - the number of classes in the given dataset
+    
+    Returns:
+        few_shot_subset - the dataset with the few samples per class kept
     """
 
     subset_img_indices = []

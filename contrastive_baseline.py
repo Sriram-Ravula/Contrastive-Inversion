@@ -3,16 +3,11 @@
 import sys
 import os
 import argparse
-import numpy as np
 import torch
 from torch import Tensor
-import typing
 import torch.nn.functional as F
 import model
 import clip
-import copy
-import pickle
-from tqdm import tqdm
 
 import torch
 import torch.nn as nn
@@ -105,7 +100,7 @@ class ImageNetCLIPDataset(LightningDataModule):
 class NoisyContrastiveBaseline(LightningModule):
     def __init__(self, args):
         """
-        A class that trains OpenAI CLIP in a student-teacher fashion to classify distorted images.
+        A class that trains a ResNet101 in a student-teacher fashion to classify distorted images.
 
         Given two identical pre-trained networks, Teacher - T() and Student S(), we freeze T() and train S().
 

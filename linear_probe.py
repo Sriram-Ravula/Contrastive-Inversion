@@ -17,6 +17,9 @@ from torch.utils.data  import DataLoader
 from noisy_clip_dataparallel import NoisyCLIP
 
 class LinearProbe(LightningModule):
+    """
+    A class to train and evaluate a linear probe on top of representations learned from a noisy clip student.
+    """
     def __init__(self, args):
         super(LinearProbe, self).__init__()
         self.hparams = args
