@@ -1,43 +1,48 @@
+#seed - SAME BETWEEN RUNS
 seed: 1234
 
-experiment_name: "Noisy_RN101_rand90_contrastive_nonfixed"
+#data - SAME BETWEEN RUNS
+dataset_dir: "/tmp/imagenet100"
+dataset: "ImageNet100"
+subset_file_name: "imagenet100.txt"
+num_classes: 100
+emb_dim: 512
 
+#distributed training - SAME BETWEEN RUNS
 num_nodes: 1
 gpus: 4
+workers: 12
+distributed_backend: "dp" #DP instead of DDP to accomodate for larger batch size
 
+###############################################
+
+#Experiment Stuff - CHANGE BETWEEN RUNS
+experiment_name: "Noisy_RN101_rand90_contrastive_nonfixed"
+
+#Distortions and parameters - CHANGE BETWEEN RUNS
 encoder: "clip"
-baseclip_type: "RN101"
-device: "cpu"
-loss_type: "simclr"
+baseclip_type: "RN101" 
+device: "cpu" #Original device where baseclip is loaded
+loss_type: "simclr" #can also be mse
 
-distortion: "randommask"
+distortion: "randommask" #randommask/gaussiannoise/gaussianblur/squaremask
 fixed_mask: False
-percent_missing: 0.9
+percent_missing: 0.9 #only for randommask - can be float from 0 to 1 for set number of missing pixels, or two floats for uniform range of missing pixels.
 
 lr: 0.0003
 weight_decay: 0.0001
-loss_tau: 0.1
-logit_scale: 0.07
-
-dataset: "Imagenet-100"
-num_classes: 100
-subset_file_name: "imagenet100.txt"
-
-dataset_dir: "/tmp/imagenet100"
-logdir: "/tmp"
-mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
-save_mapping_and_text: True
-
 batch_size: 256
+loss_tau: 0.1 #tau parameter for our loss
+logit_scale: 0.07 #logit scale for zeroshot - inherited from original CLIP
 
-workers: 12
-
-distributed_backend: "dp"
+mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl" #Save text labels of dataset for reuse.
+save_mapping_and_text: True
 
 #training
 max_epochs: 25
-log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+log_save_interval: 25
 row_log_interval: 1
+logdir: "/tmp"
 sync_bn: True
 
 #validation
