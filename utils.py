@@ -368,7 +368,7 @@ class ImageNetDistortVal:
 class ImageNet100(ImageFolder):
     """
     Dataset for ImageNet100. Majority of code taken from torchvision.datasets.ImageNet.
-    NOT TESTED YET.
+    Works in a similar function and has similar semantics to the original class.
     """
     def __init__(self, root, split, transform=None, **kwargs):
         #checking stuff
