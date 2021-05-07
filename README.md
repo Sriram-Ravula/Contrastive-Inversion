@@ -22,15 +22,13 @@ The following source files are required to execute the various experiments menti
 - ```noise_level_testing.py```: Evaluation of a trained model on various noise levels added in the input.
 - ```utils.py```: General library for functions used throughout our code.
 
-We also provide ```slice_imagenet100.py```, a code to be used one time to generate the ImageNet-100 subset we used, as defined by ```imagenet100.txt```. In order to run most of the code we provide, please first run this file with the proper source path to the full ImageNet dataset (can be downloaded separately at https://image-net.org/download) and desired destination path for the 100-class subset. Then, provide the path to your 100-class ImageNet subset in the yaml config files.
+We also provide ```slice_imagenet100.py```, a code to be used one time to generate the ImageNet-100 subset we used, as defined by ```imagenet100.txt```. In order to run most of the code we provide, please first run this file with the proper source path to the full ImageNet dataset (can be downloaded separately at https://image-net.org/download) and desired destination path for the 100-class subset. Then, provide the path to your 100-class ImageNet subset in the yaml config files. For further details, refer to the comments in ```slice_imagenet100.py``` and the global variables set at the beginning of the script.
 
 In the ```config/``` folder, some sample configuration files for our experiments are included.
 
 ## Examples
 
-Using the following snippets of code, the experiments described in the report can be run. Note that editing the ```batch_size``` and ```gpus``` parameters of the sample files will lead to speedup and increased performance for the contrastive models.
-
-Before any examples are run, make sure to execute ```python slice_imagenet100.py```, in the same directory as the ILSVRC base folder, to generate the ImageNet-100 subset (for further details, look at the comments in the ```slice_imagenet100.py``` and the global variables set at the beginning of the script).
+Using the following snippets of code, the experiments described in the report can be run. Note that editing the ```batch_size``` and ```gpus``` parameters of the sample files will lead to speedup and increased performance for the contrastive models. 
 
 - ```python baselines.py --config_file config/Supervised_CLIP_Baselines/sample.yaml```: Train a baseline model, in an end-to-end supervised fashion.
 - ```python noisy_clip_dataparallel.py --config_file config/NoisyRN101/sample.yaml```: Trains a CLIP model using contrastive learning.
