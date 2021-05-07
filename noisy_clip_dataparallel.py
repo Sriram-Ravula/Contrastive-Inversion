@@ -100,7 +100,10 @@ class ImageNetCLIPDataset(LightningDataModule):
         return DataLoader(self.train_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_data, batch_size=2*self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
+        return DataLoader(self.val_data, batch_size=2*self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False) # Only used for evaluation.
+    
+    def test_dataloader(self):
+        return self.val_dataloader() # Same data to be used for testing, for our purposes.
 
 
 class NoisyCLIP(LightningModule):
