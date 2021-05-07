@@ -30,10 +30,13 @@ from linear_probe import LinearProbe
 from baselines import Baseline
 from zeroshot_validation import NoisyCLIPTesting
 
-class ImageNet100NoisyValDataset(LightningDataModule):
-
+class ImageNet100Test(LightningDataModule):
+    """
+    This class loads the validation set of ImageNet100, to be used only for testing.
+    Implemented separately because it is linked to both end-to-end suprevised and contrastive training.
+    """
     def __init__(self, args):
-        super(ImageNet100NoisyValDataset, self).__init__()
+        super(ImageNet100Test, self).__init__()
 
         self.hparams = args
 
@@ -80,6 +83,7 @@ def noise_level_eval():
     )
    
     for noise_level in args.noise_levels:
+        #Choose the appropriate model based on type, and load from checkpoint.
         trainer = Trainer.from_argparse_args(args, logger=logger)
         if args.saved_model_type == 'linear':
             saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
@@ -88,7 +92,7 @@ def noise_level_eval():
         elif args.saved_model_type == 'zeroshot':
             saved_model = NoisyCLIPTesting(args, args.checkpoint_path)
             
-
+        # Correctly define noise levels to test.
         if args.distortion == "squaremask":
             args.length = noise_level
         elif args.distortion == "randommask":
@@ -99,7 +103,7 @@ def noise_level_eval():
             args.kernel_size = noise_level[0]
             args.sigma = noise_level[1]
 
-        test_data = ImageNet100NoisyValDataset(args)
+        test_data = ImageNet100Test(args)
         trainer.test(model=saved_model, datamodule=test_data, verbose=True)
 
 if __name__ == "__main__":
