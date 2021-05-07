@@ -16,25 +16,25 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "rand90_nonfixed"
-checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/Noisy_RN101_rand90_contrastive_nonfixed/checkpoints/epoch=24-step=12374.ckpt"
+experiment_name: "sample_linear_probe"
+checkpoint_path: "/path/to/contrastive_student.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
-distortion: "randommask" #randommask or squaremask
-percent_missing: 0.9 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
-fixed_mask: False
+distortion: "randommask" #randommask/gaussiannoise/gaussianblur/squaremask
+percent_missing: 0.9 #only for randommask - can be float from 0 to 1 for set number of missing pixels, or two floats for uniform range of missing pixels.
+fixed_mask: False #can be set to true if fixed mask is desired
 
 encoder: "clip"
 
 #training
 max_epochs: 10
 lr: 0.001
-batch_size: 8 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,
-use_subset: True
+batch_size: 8
+use_subset: True #Use subset of the data to train linear probe.
 subset_ratio: 0.1
 
 #logging
-log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+log_save_interval: 25
 row_log_interval: 1
 logdir: "/tmp/Logs"
 
