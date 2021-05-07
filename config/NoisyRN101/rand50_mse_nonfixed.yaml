@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "Noisy_RN101_rand90_mse_fixed"
+experiment_name: "Noisy_RN101_rand50_mse_nonfixed"
 
 num_nodes: 1
 gpus: 4
@@ -11,8 +11,8 @@ device: "cpu"
 loss_type: "mse"
 
 distortion: "randommask"
-fixed_mask: True
-percent_missing: 0.9
+fixed_mask: False
+percent_missing: 0.5
 
 lr: 0.0003
 weight_decay: 0.0001
@@ -25,7 +25,7 @@ subset_file_name: "imagenet100.txt"
 
 dataset_dir: "/tmp/imagenet100"
 logdir: "/tmp"
-mapping_and_text_file: "./mapping_text_labels_imagenet100_mse.pkl"
+mapping_and_text_file: "./mapping_text_labels_imagenet100.pkl"
 save_mapping_and_text: True
 
 batch_size: 256

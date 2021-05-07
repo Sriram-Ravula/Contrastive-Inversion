@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "Noisy_RN101_rand75_mse_fixed"
+experiment_name: "Noisy_RN101_rand75_mse_nonfixed"
 
 num_nodes: 1
 gpus: 4
@@ -11,7 +11,7 @@ device: "cpu"
 loss_type: "mse"
 
 distortion: "randommask"
-fixed_mask: True
+fixed_mask: False
 percent_missing: 0.75
 
 lr: 0.0003
