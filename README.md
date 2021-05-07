@@ -22,7 +22,7 @@ The following source files are required to execute the various experiments menti
 - ```noise_level_testing.py```: Evaluation of a trained model on various noise levels added in the input.
 - ```utils.py```: General library for functions used throughout our code.
 
-We also provide ```slice_imagenet100.py```, a code to be used one time to generate the ImageNet-100 subset we used, as defined by ```imagenet100.txt```.
+We also provide ```slice_imagenet100.py```, a code to be used one time to generate the ImageNet-100 subset we used, as defined by ```imagenet100.txt```. In order to run most of the code we provide, please first run this file with the proper source path to the full ImageNet dataset (can be downloaded separately at https://image-net.org/download) and desired destination path for the 100-class subset. Then, provide the path to your 100-class ImageNet subset in the yaml config files. 
 
 In the ```config/``` folder, some sample configuration files for our experiments are included. 
 
@@ -33,5 +33,5 @@ Using the following snippets of code, the experiments described in the report ca
 - ```python baselines.py --config_file config/Supervised_CLIP_Baselines/sample.yaml```: Train a baseline model, in an end-to-end supervised fashion.
 - ```python noisy_clip_dataparallel.py --config_file config/NoisyRN101/sample.yaml```: Trains a CLIP model using contrastive learning.
 - ```python zeroshot_validation.py --config_file config/NoisyRN101/sample.yaml --ckpt_file <model.ckpt>```: Performs zeroshot evaluation of a trained clip model. The sample file to be used is the same one specified during training (for flexibility, checkpoint file provided separately).
-- ```python linear_probe.py --config_file config/LinearProbeSubset/sample.yaml```: Trains a linear probe on top of a representation learned using contrastive loss.
-- ```python noise_level_testing.py --config_file config/NoiseLevelTesting/sample.yaml```: Evaluates a trained model for various levels of noise in the dataset.
+- ```python linear_probe.py --config_file config/LinearProbeSubset/sample.yaml```: Trains a linear probe on top of a representation learned using contrastive loss. This requires the user to specify a checkpoint file in the yaml config file. 
+- ```python noise_level_testing.py --config_file config/NoiseLevelTesting/sample.yaml```: Evaluates a trained model for various levels of noise in the dataset. This requires the user to specify a checkpoint file in the yaml config file. 
