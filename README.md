@@ -30,6 +30,7 @@ In the ```config/``` folder, some sample configuration files for our experiments
 
 Using the following snippets of code, the experiments described in the report can be run. Note that editing the ```batch_size``` and ```gpus``` parameters of the sample files will lead to speedup and increased performance for the contrastive models. 
 
+- ```Short_Evaluation_Demo.ipynb```: A small demo of the types of distortions we use, as well as a comparison between the baseline and linear evaluations. You will need to download the checkpoints from the google drive link for this to run.
 - ```python baselines.py --config_file config/Supervised_CLIP_Baselines/sample.yaml```: Train a baseline model, in an end-to-end supervised fashion.
 - ```python noisy_clip_dataparallel.py --config_file config/NoisyRN101/sample.yaml```: Trains a CLIP model using contrastive learning.
 - ```python zeroshot_validation.py --config_file config/NoisyRN101/sample.yaml --ckpt_file rand90_zeroshot.ckpt```: Performs zeroshot evaluation of a trained zero-shot clip model. The sample file to be used is the same one specified during training (for flexibility, checkpoint file provided separately).
