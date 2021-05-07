@@ -20,7 +20,7 @@ class LinearProbe(LightningModule):
     """
     A class to train and evaluate a linear probe on top of representations learned from a noisy clip student.
     """
-    def __init__(self, args):
+    def __init__(self, args, external_ckpt_file=None):
         super(LinearProbe, self).__init__()
         self.hparams = args
 
@@ -42,7 +42,10 @@ class LinearProbe(LightningModule):
                     self.val_set_transform = ImageNetDistortVal(self.hparams)
 
         #This should be initialised as a trained student CLIP network
-        saved_student = NoisyCLIP.load_from_checkpoint(self.hparams.checkpoint_path)
+        if external_ckpt_file is not None:
+            saved_student = NoisyCLIP.load_from_checkpoint(self.hparams.checkpoint_path)
+        else:
+            saved_student = NoisyCLIP.load_from_checkpoint(external_ckpt_file)
 
         self.backbone = saved_student.noisy_visual_encoder
         self.backbone.eval()
