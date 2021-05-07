@@ -23,4 +23,13 @@ The following source files are required to execute the various experiments menti
 
 We also provide ```slice_imagenet100.py```, a code to be used one time to generate the ImageNet-100 subset we used, as defined by ```imagenet100.txt```.
 
+In the ```config/``` folder, some sample configuration files for our experiments are included. 
+
 ## Examples
+
+Using the following snippets of code, the experiments described in the report can be run.
+
+- ```python baselines.py --config_file config/Supervised_CLIP_Baselines/config.yaml```: Train a baseline model, in an end-to-end supervised fashion.
+- ```python noisy_clip_dataparallel.py --config_file config/NoisyRN101/sample.yaml```: Trains a CLIP model using contrastive learning.
+- ```python linear_probe.py --config_file config/LinearProbeSubset/sample.yaml```: Trains a linear probe on top of a representation learned using contrastive loss.
+- ```python noise_level_testing.py --config_file config/NoiseLevelTesting/sample.yaml```: Evaluates a trained model for various levels of noise in the dataset.
