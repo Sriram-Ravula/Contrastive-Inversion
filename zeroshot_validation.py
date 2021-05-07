@@ -30,6 +30,10 @@ from noisy_clip_dataparallel import NoisyCLIP, ContrastiveUnsupervisedDataset, I
 from linear_probe import LinearProbe
 
 class ImageNetCLIPDatasetTesting(ImageNetCLIPDataset):
+    """
+    This is an extension of the original ImageNetCLIPDataset class, which also adds an implementation for testing.
+    The testing data is simply the same as the one used for validation.
+    """
     def __init__(self, args):
         super(ImageNetCLIPDatasetTesting,self).__init__(args)
 
@@ -37,7 +41,10 @@ class ImageNetCLIPDatasetTesting(ImageNetCLIPDataset):
         return self.val_dataloader()
 
 class NoisyCLIPTesting(LightningModule):
-
+    """
+    Wrapper for the original NoisyCLIP, in order to implement testing functions.
+    The goal is to obtain predictions using a saved instance of NoisyCLIP, and evaluate these on the test set.
+    """
     def __init__(self, args, ckpt_file):
         super(NoisyCLIPTesting,self).__init__()
         self.backbone = NoisyCLIP.load_from_checkpoint(ckpt_file).eval()
@@ -65,6 +72,9 @@ class NoisyCLIPTesting(LightningModule):
         self.test_top_5.reset()
 
 def grab_config():
+    """
+    Function used to retrieve arguments from the configuration file.
+    """
     parser = argparse.ArgumentParser(description="NoisyCLIP")
 
     parser.add_argument('--config_file')
