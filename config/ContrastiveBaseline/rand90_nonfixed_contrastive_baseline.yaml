@@ -5,12 +5,12 @@ experiment_name: "RAND90_RN101_CONTRASTIVE_STUDENT"
 num_nodes: 1
 gpus: 4
 
-batch_size: 128
+batch_size: 256
 
 workers: 12
 
-#precision: 16
-#amp_level: '02'
+precision: 16
+amp_level: 'O2'
 
 distributed_backend: "dp"
 
@@ -22,7 +22,7 @@ distortion: "randommask"
 fixed_mask: False
 percent_missing: 0.9
 
-lr: 0.001
+lr: 0.0003
 weight_decay: 0.0001
 loss_tau: 0.1
 

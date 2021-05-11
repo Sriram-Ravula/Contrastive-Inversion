@@ -6,8 +6,7 @@ import argparse
 import torch
 from torch import Tensor
 import torch.nn.functional as F
-import model
-import clip
+from clip_files import model, clip
 
 import torch
 import torch.nn as nn
@@ -82,13 +81,8 @@ class ImageNetCLIPDataset(LightningDataModule):
             transform=None
         )
 
-        filename = self.hparams.dataset_dir + self.hparams.subset_file_name
-
-        # Get the subset, as well as its labels as text.
-        text_labels = list(train_data.idx_to_class.values())
-
-        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_contrastive=self.train_set_transform, return_label=True)
-        self.val_contrastive = ContrastiveUnsupervisedDataset(val_data, transform_contrastive=self.val_set_transform, return_label=True)
+        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_contrastive=self.train_set_transform)
+        self.val_contrastive = ContrastiveUnsupervisedDataset(val_data, transform_contrastive=self.val_set_transform)
 
     def train_dataloader(self):
         return DataLoader(self.train_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=True)
@@ -115,7 +109,7 @@ class NoisyContrastiveBaseline(LightningModule):
         self.world_size = self.hparams.num_nodes * self.hparams.gpus
 
         #(1) Load the correct dataset class names
-        if self.hparams.dataset == "Imagenet-100":
+        if self.hparams.dataset == "ImageNet100" or self.hparams.dataset == "Imagenet-100":
             self.N_val = 5000 # Default ImageNet validation set, only 100 classes.
         else:
             raise NotImplementedError('Handling of the dataset not implemented yet.')
@@ -223,7 +217,7 @@ class NoisyContrastiveBaseline(LightningModule):
             embed_clean: T(xi) where T() is the teacher and xi are clean images. Shape [N, embed_dim]
             embed_noisy: S(yi) where S() is the student and yi are noisy images. Shape [N, embed_dim]
         """
-        image_clean, image_noisy, _ = train_batch
+        image_clean, image_noisy = train_batch
 
         self.teacher.eval()
         with torch.no_grad():
@@ -252,7 +246,7 @@ class NoisyContrastiveBaseline(LightningModule):
         Grab the noisy image embeddings: S(yi), where S() is the student and yi = Distort(xi). Done on each GPU.
         Return these to be evaluated in validation step end.
         """
-        image_clean, image_noisy, _ = val_batch
+        image_clean, image_noisy = val_batch
 
         with torch.no_grad():
             embed_clean = self.teacher(image_clean).flatten(1)
@@ -271,7 +265,7 @@ class NoisyContrastiveBaseline(LightningModule):
 
         loss = self.criterion(embed_clean_full, embed_noisy_full)
 
-        self.log('val_loss', loss, prog_bar=True, logger=True, sync_dist=True, on_step=True, on_epoch=True)
+        self.log('val_simclr_loss', loss, prog_bar=True, logger=True, sync_dist=True, on_step=True, on_epoch=True)
 
 def run_noisy_student():
     args = grab_config()
