@@ -90,6 +90,27 @@ class ImageNetCLIPDataset(LightningDataModule):
     def val_dataloader(self):
         return DataLoader(self.val_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
     
+class RESNET_contrastive(nn.Module):
+    def __init__(self, args):
+        super(RESNET_contrastive, self).__init__()
+
+        self.args = args
+
+        if args.resnet_model == "50":
+            backbone = models.resnet50(pretrained=True)
+        elif args.resnet_model == "101":
+            backbone = models.resnet101(pretrained=True)
+        
+        layers = list(backbone.children())[:-1]
+        self.feature_extractor = nn.Sequential(*layers)
+
+    def forward(self, x):
+        features = self.feature_extractor(x).flatten(1)
+
+        if self.args.precision == 16:
+            return torch.clamp(features, min=1e-4)
+        else:
+            return features
 
 class NoisyContrastiveBaseline(LightningModule):
     def __init__(self, args):
@@ -116,26 +137,16 @@ class NoisyContrastiveBaseline(LightningModule):
 
         #(2) set up the teacher RN network - freeze it and don't use gradients!
         #Grab the correct Resnet model
-        if args.resnet_model == "50":
-            backbone = models.resnet50(pretrained=True)
-        elif args.resnet_model == "101":
-            backbone = models.resnet101(pretrained=True)
-        layers = list(backbone.children())[:-1]
-        self.teacher = nn.Sequential(*layers)
+        self.teacher = RESNET_contrastive(self.hparams)
         self.teacher.eval()
         self.teacher.requires_grad_(False)
 
         #(3) set up the student CLIP network - unfreeze it and use gradients!
-        if args.resnet_model == "50":
-            backbone = models.resnet50(pretrained=True)
-        elif args.resnet_model == "101":
-            backbone = models.resnet101(pretrained=True)
-        layers = list(backbone.children())[:-1]
-        self.student = nn.Sequential(*layers)
+        self.student = RESNET_contrastive(self.hparams)
         self.student.train()
         self.student.requires_grad_(True)
 
-    def criterion(self, input1, input2, reduction='sum'):
+    def criterion(self, input1, input2, reduction='mean'):
         """
         Args:
             input1: Embeddings of the clean/noisy images from the teacher/student. Size [N, embedding_dim].
@@ -189,7 +200,10 @@ class NoisyContrastiveBaseline(LightningModule):
 
 
     def configure_optimizers(self):
-        opt = torch.optim.Adam(self.student.parameters(), lr = self.hparams.lr)
+        if self.hparams.precision == 16:
+            opt = torch.optim.Adam(self.student.parameters(), lr = self.hparams.lr, eps=1e-4)
+        else:
+            opt = torch.optim.Adam(self.student.parameters(), lr = self.hparams.lr)
 
         num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus) #divide N_train by number of distributed iters
 

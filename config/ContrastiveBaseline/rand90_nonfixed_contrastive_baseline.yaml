@@ -1,21 +1,21 @@
 seed: 1234
 
-experiment_name: "RAND90_RN101_CONTRASTIVE_STUDENT"
+experiment_name: "RAND90_RN101_CONTRASTIVE_STUDENT_200"
 
 num_nodes: 1
 gpus: 4
 
-batch_size: 256
+batch_size: 200
 
 workers: 12
 
-precision: 16
-amp_level: 'O2'
+precision: 32
 
 distributed_backend: "dp"
 
 encoder: "resnet"
 resnet_model: "101"
+
 loss_type: "simclr"
 
 distortion: "randommask"
