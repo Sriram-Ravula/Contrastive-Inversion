@@ -10,6 +10,7 @@ import pytorch_lightning as pl
 from pytorch_lightning import Trainer, LightningModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.metrics import Accuracy
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 from utils import *
 from clip_files import clip
@@ -160,6 +161,9 @@ class Baseline(LightningModule):
             if self.hparams.distortion == "None":
                 self.train_set_transform = ImageNetBaseTransform(self.hparams)
                 self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
+            elif self.hparams.distortion == "multi":
+                self.train_set_transform = ImageNetDistortTrainMulti(self.hparams)
+                self.val_set_transform = ImageNetDistortValMulti(self.hparams)
             else:
                 #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed! 
                 self.train_set_transform = ImageNetDistortTrain(self.hparams)
@@ -334,7 +338,7 @@ def run_baseline():
         version=args.experiment_name,
         name='Contrastive-Inversion'
     )
-    trainer = Trainer.from_argparse_args(args, logger=logger)      
+    trainer = Trainer.from_argparse_args(args, logger=logger, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])      
 
     trainer.fit(model)
 

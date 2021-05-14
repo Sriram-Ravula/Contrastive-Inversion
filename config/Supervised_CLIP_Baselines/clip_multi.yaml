@@ -15,12 +15,10 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "CLIP_RN101_RAND50_50"
+experiment_name: "CLIP_RN101_MULTI"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
-distortion: "randommask" #randommask or squaremask
-percent_missing: 0.5 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
-fixed_mask: False
+distortion: "multi" #randommask or squaremask
 
 #model - CHANGE BETWEEN RUNS
 encoder: "clip" #'clip' or 'resnet'
