@@ -53,6 +53,10 @@ class ImageNetCLIPDataset(LightningDataModule):
         if self.hparams.distortion == "None":
             self.train_set_transform = ImageNetBaseTrainContrastive(self.hparams)
             self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
+        elif self.hparams.distortion == 'multi':
+            #set up the training transform and if we want a fixed mask, transfer the same mask to the validation transform
+            self.train_set_transform = ImageNetDistortTrainMultiContrastive(self.hparams)
+            self.val_set_transform = ImageNetDistortValMulti(self.hparams)
         else:
             #set up the training transform and if we want a fixed mask, transfer the same mask to the validation transform
             self.train_set_transform = ImageNetDistortTrainContrastive(self.hparams)
@@ -90,7 +94,7 @@ class ImageNetCLIPDataset(LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(self.val_data, batch_size=2*self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False) # Only used for evaluation.
-    
+
     def test_dataloader(self):
         return self.val_dataloader() # Same data to be used for testing, for our purposes.
 
