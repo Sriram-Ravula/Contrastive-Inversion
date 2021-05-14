@@ -168,6 +168,14 @@ class LinearProbe(LightningModule):
         self.test_top_1.reset()
         self.test_top_5.reset()
 
+    def predict(self, batch, batch_idx, hiddens):
+        x, y = batch
+        logits = self.forward(x)
+        pred_probs = logits.softmax(dim=-1)
+        preds = pred_probs.argmax(dim=-1)
+        return preds
+
+
 def grab_config():
     parser = argparse.ArgumentParser(description="NoisyCLIP")
 

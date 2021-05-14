@@ -6,7 +6,7 @@ import os
 import yaml
 from torch.utils.data.dataset import Dataset, Subset
 from torchvision.datasets import ImageFolder
-
+from torchvision.datasets.folder import make_dataset
 
 class RandomMask(object):
     """
@@ -640,6 +640,49 @@ class ImageNet100(ImageFolder):
         self.idx_to_class = {idx: cls
                              for idx, clss in enumerate(self.classes)
                              for i, cls in enumerate(clss) if i == 0}
+
+
+class ImageNet100OOD(ImageFolder):
+    """
+    Dataset for ImageNet100. Majority of code taken from torchvision.datasets.ImageNet.
+    Works in a similar function and has similar semantics to the original class.
+    """
+    def __init__(self, root, split, transform=None, **kwargs):
+        #checking stuff
+        root = os.path.expanduser(root)
+        if split != 'val':
+            raise ValueError('Split should be val.')
+
+        #contains our desired {wnid: class} dictionary
+        META_FILE = "meta.bin"
+
+        #initialize parameters from DatasetFolder
+        super(ImageNet100OOD, self).__init__(os.path.join(root, split), **kwargs)
+        self.root = root
+        self.split = split
+        self.transform = transform
+
+        #from the dataset folder class, we inherit two properties
+        #self.classes is a list of class names based on the folders present in our subset - actually wnids!
+        #self.class_to_idx is a dict {wnid: wnid_index} where wnid_index is a number from 0 to 99
+
+        #Load the {wnid: class_name} dictionary from meta.bin
+        wnid_to_classes = torch.load(os.path.join(self.root, META_FILE))[0]
+        self.wnids = self.classes #current self.classes is actually wnids!
+        self.wnid_to_idx = self.class_to_idx
+        self.classes = [wnid_to_classes[wnid] for wnid in self.wnids] #get the actual class names (e.g. "bird")
+        self.class_to_idx = {
+            ('cup',): 53,
+            ('Dungeness crab', 'Cancer magister'): 8,
+            ('mountain bike','all-terrain bike', 'off-roader'): 68,
+            ('wood rabbit', 'cottontail', 'cottontail rabbit'): 40,
+            ('French bulldog',): 21
+        }
+        for key in self.wnid_to_idx.keys():
+            self.wnid_to_idx[key] = self.class_to_idx[wnid_to_classes[key]]
+        print(self.wnid_to_idx)
+        self.samples = make_dataset(os.path.join(root, split), self.wnid_to_idx, extensions=('jpeg',))
+        self.targets = [s[1] for s in self.samples]
 
 
 def img_grid(data):
