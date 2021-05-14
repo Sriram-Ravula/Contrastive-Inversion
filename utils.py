@@ -129,7 +129,7 @@ class GaussianNoise(object):
         if self.fixed and self.noise is not None:
             return image + self.noise
 
-        if isinstance(std, list):
+        if isinstance(self.std, list):
             std = np.random.uniform(low=self.std[0], high=self.std[1])
             noise = torch.randn((c, h, w)) * std
         else:
