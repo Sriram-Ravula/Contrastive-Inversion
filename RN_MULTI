@@ -1,0 +1,25 @@
+/work/04703/sravula/maverick2/software/venvs/basic/lib/python3.7/site-packages/torch/cuda/__init__.py:52: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at  /pytorch/c10/cuda/CUDAFunctions.cpp:100.)
+  return torch._C._cuda_getDeviceCount() > 0
+Global seed set to 1234
+Traceback (most recent call last):
+  File "baselines.py", line 364, in <module>
+    run_baseline()
+  File "baselines.py", line 341, in run_baseline
+    trainer = Trainer.from_argparse_args(args, logger=logger, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])      
+  File "/work/04703/sravula/maverick2/software/venvs/basic/lib/python3.7/site-packages/pytorch_lightning/trainer/properties.py", line 212, in from_argparse_args
+    return from_argparse_args(cls, args, **kwargs)
+  File "/work/04703/sravula/maverick2/software/venvs/basic/lib/python3.7/site-packages/pytorch_lightning/utilities/argparse.py", line 53, in from_argparse_args
+    return cls(**trainer_kwargs)
+  File "/work/04703/sravula/maverick2/software/venvs/basic/lib/python3.7/site-packages/pytorch_lightning/trainer/connectors/env_vars_connector.py", line 42, in overwrite_by_env_vars
+    return fn(self, **kwargs)
+  File "/work/04703/sravula/maverick2/software/venvs/basic/lib/python3.7/site-packages/pytorch_lightning/trainer/trainer.py", line 320, in __init__
+    replace_sampler_ddp, deterministic, precision, amp_backend, amp_level, plugins
+  File "/work/04703/sravula/maverick2/software/venvs/basic/lib/python3.7/site-packages/pytorch_lightning/trainer/connectors/accelerator_connector.py", line 117, in __init__
+    self.parallel_device_ids = device_parser.parse_gpu_ids(self.gpus)
+  File "/work/04703/sravula/maverick2/software/venvs/basic/lib/python3.7/site-packages/pytorch_lightning/utilities/device_parser.py", line 81, in parse_gpu_ids
+    gpus = _sanitize_gpu_ids(gpus)
+  File "/work/04703/sravula/maverick2/software/venvs/basic/lib/python3.7/site-packages/pytorch_lightning/utilities/device_parser.py", line 143, in _sanitize_gpu_ids
+    f"You requested GPUs: {gpus}\n But your machine only has: {all_available_gpus}"
+pytorch_lightning.utilities.exceptions.MisconfigurationException: You requested GPUs: [0, 1, 2, 3]
+ But your machine only has: []
+cp: cannot stat ‘/tmp/Logs/Contrastive-Inversion/.’: No such file or directory
