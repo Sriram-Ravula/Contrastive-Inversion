@@ -13,6 +13,7 @@ from utils import *
 from pytorch_lightning import Trainer, LightningModule, LightningDataModule, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.metrics import Accuracy
+from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.utils.data  import DataLoader
 
 class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
@@ -306,7 +307,7 @@ def run_noisy_clip():
         version=args.experiment_name,
         name='NoisyCLIP_Logs'
     )
-    trainer = Trainer.from_argparse_args(args, logger=logger)
+    trainer = Trainer.from_argparse_args(args, logger=logger, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])
 
     trainer.fit(model, dataset)
 

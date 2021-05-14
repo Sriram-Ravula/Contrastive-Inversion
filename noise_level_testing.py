@@ -57,6 +57,7 @@ def grab_config():
 
 def noise_level_eval():
     args = grab_config()
+    args.gpus = 1 # Force evaluation in a single gpu.
 
     seed_everything(args.seed)
 
@@ -65,30 +66,35 @@ def noise_level_eval():
         version=args.experiment_name,
         name='NoisyCLIP_Logs'
     )
-   
-    for noise_level in args.noise_levels:
-        #Choose the appropriate model based on type, and load from checkpoint.
-        trainer = Trainer.from_argparse_args(args, logger=logger)
-        if args.saved_model_type == 'linear':
-            saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
-        elif args.saved_model_type == 'baseline':
-            saved_model = Baseline.load_from_checkpoint(args.checkpoint_path)
-        elif args.saved_model_type == 'zeroshot':
-            saved_model = NoisyCLIPTesting(args, args.checkpoint_path)
-            
-        # Correctly define noise levels to test.
-        if args.distortion == "squaremask":
-            args.length = noise_level
-        elif args.distortion == "randommask":
-            args.percent_missing = noise_level
-        elif args.distortion == "gaussiannoise":
-            args.std = noise_level
-        elif args.distortion == "gaussianblur":
-            args.kernel_size = noise_level[0]
-            args.sigma = noise_level[1]
 
-        test_data = ImageNet100Test(args)
-        trainer.test(model=saved_model, datamodule=test_data, verbose=True)
+    all_results = []
+
+    for test in range(self.hparams.num_tests):
+        for noise_level in args.noise_levels:
+            #Choose the appropriate model based on type, and load from checkpoint.
+            trainer = Trainer.from_argparse_args(args, logger=logger)
+            if args.saved_model_type == 'linear':
+                saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
+            elif args.saved_model_type == 'baseline':
+                saved_model = Baseline.load_from_checkpoint(args.checkpoint_path)
+            elif args.saved_model_type == 'zeroshot':
+                saved_model = NoisyCLIPTesting(args, args.checkpoint_path)
+
+            # Correctly define noise levels to test.
+            if args.distortion == "squaremask":
+                args.length = noise_level
+            elif args.distortion == "randommask":
+                args.percent_missing = noise_level
+            elif args.distortion == "gaussiannoise":
+                args.std = noise_level
+            elif args.distortion == "gaussianblur":
+                args.kernel_size = noise_level[0]
+                args.sigma = noise_level[1]
+
+            test_data = ImageNet100Test(args)
+            results = trainer.test(model=saved_model, datamodule=test_data, verbose=False)
+            all_results.append(results)
+            print(results)
 
 if __name__ == "__main__":
     noise_level_eval()
