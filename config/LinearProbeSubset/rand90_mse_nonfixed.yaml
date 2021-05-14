@@ -5,6 +5,7 @@ seed: 1234
 dataset_dir: "/tmp/imagenet100/"
 dataset: "ImageNet100"
 num_classes: 100
+emb_dim: 512
 
 #distributed training - SAME BETWEEN RUNS
 num_nodes: 1
@@ -15,27 +16,26 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "CLIP_RN101_RAND90_NONFIXED_RESET_NOTRAIN"
+experiment_name: "rand90_mse_nonfixed"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/Noisy_RN101_rand90_mse_nonfixed/checkpoints/epoch=24-step=12374.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "randommask" #randommask or squaremask
 percent_missing: 0.9 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
 fixed_mask: False
 
-#model - CHANGE BETWEEN RUNS
-encoder: "clip" #'clip' or 'resnet'
-#resnet_model: "101" #50 or 101
-clip_model: 'RN101' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if encoder: "clip"
-freeze_backbone: False
+encoder: "clip"
 
 #training
-max_epochs: 25
+max_epochs: 10
 lr: 0.001
-batch_size: 64 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,      
+batch_size: 8 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,
+use_subset: True
+subset_ratio: 0.1
 
 #logging
-log_save_interval: 1 #set this to be equal to num_epochs if row_log_interval is 1
-row_log_interval: 1  
+log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+row_log_interval: 1
 logdir: "/tmp/Logs"
 
 #validation
