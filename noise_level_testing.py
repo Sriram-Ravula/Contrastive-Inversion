@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import argparse
 import numpy as np
 import torch
@@ -39,7 +40,7 @@ class ImageNet100Test(LightningDataModule):
         )
 
     def test_dataloader(self):
-        return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
+        return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, worker_init_fn=(lambda wid: np.random.seed(int(torch.rand(1)[0]*1e6) + wid)), pin_memory=True, shuffle=False)
 
 
 def grab_config():
@@ -59,20 +60,19 @@ def noise_level_eval():
     args = grab_config()
     args.gpus = 1 # Force evaluation in a single gpu.
 
-    seed_everything(args.seed)
+    seed_everything(42)
 
     logger = TensorBoardLogger(
         save_dir=args.logdir,
         version=args.experiment_name,
         name='NoisyCLIP_Logs'
     )
+    trainer = Trainer.from_argparse_args(args, logger=logger, progress_bar_refresh_rate=0)
 
-    all_results = []
-
-    for test in range(self.hparams.num_tests):
-        for noise_level in args.noise_levels:
+    for noise_level in args.noise_levels:
+        all_results = []
+        for test in range(args.num_tests):
             #Choose the appropriate model based on type, and load from checkpoint.
-            trainer = Trainer.from_argparse_args(args, logger=logger)
             if args.saved_model_type == 'linear':
                 saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
             elif args.saved_model_type == 'baseline':
@@ -93,8 +93,17 @@ def noise_level_eval():
 
             test_data = ImageNet100Test(args)
             results = trainer.test(model=saved_model, datamodule=test_data, verbose=False)
-            all_results.append(results)
-            print(results)
+            all_results.extend(results)
+    
+        top1_accs = [x['test_top_1'] for x in all_results]
+        top5_accs = [x['test_top_5'] for x in all_results]
+        with open(os.path.join(args.results_dir, 'noise_level_{0:}.out'.format(int(100*noise_level))), 'w') as f:
+            f.write('Top 1 mean\t{0:.4f}\n'.format(np.mean(top1_accs)))
+            f.write('Top 1 std\t{0:.4f}\n'.format(np.std(top1_accs, ddof=1)))
+            f.write('Top 1 stderr\t{0:.4f}\n'.format(np.std(top1_accs, ddof=1)/np.sqrt(args.num_tests)))
+            f.write('Top 5 mean\t{0:.4f}\n'.format(np.mean(top5_accs)))
+            f.write('Top 5 std\t{0:.4f}\n'.format(np.std(top5_accs, ddof=1)))
+            f.write('Top 5 stderr\t{0:.4f}\n'.format(np.std(top5_accs, ddof=1)/np.sqrt(args.num_tests)))
 
 if __name__ == "__main__":
     noise_level_eval()

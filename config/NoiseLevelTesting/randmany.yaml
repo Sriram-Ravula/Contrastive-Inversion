@@ -1,5 +1,4 @@
 #seed - SAME BETWEEN RUNS
-seed: 1234
 
 #data - SAME BETWEEN RUNS
 dataset_dir: "/tmp/imagenet100/"
@@ -11,7 +10,7 @@ emb_dim: 512
 num_nodes: 1
 gpus: 4
 workers: 12
-distributed_backend: "ddp"
+#distributed_backend: "ddp"
 
 ###############################################
 
@@ -21,10 +20,10 @@ checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN1
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "randommask" #randommask or squaremask
-noise_levels: [0.5,0.75,0.9,0.95,0.99]
+noise_levels: [0.75,0.8,0.9,0.93,0.95,0.96,0.97]
 fixed_mask: False
 saved_model_type: "linear"
-num_tests: 2
+num_tests: 10
 
 encoder: "clip"
 
@@ -32,6 +31,8 @@ encoder: "clip"
 log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 logdir: "/tmp/Logs"
+
+results_dir: './results'
 
 #validation
 check_val_every_n_epoch: 1
