@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "randincreasing"
+experiment_name: "noiseincreasing"
 
 num_nodes: 1
 gpus: 4

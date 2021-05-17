@@ -132,9 +132,9 @@ class NoisyCLIP(LightningModule):
 
         #Set up the dataset
         #Here, we use a 100-class subset of ImageNet
-        if self.hparams.dataset != "ImageNet100":
+        if self.hparams.dataset != "ImageNet100" and self.hparams.dataset != "Imagenet-100":
             raise ValueError("Unsupported dataset selected.")
-        elif not hasattribute(self.hparams, increasing) or not self.hparams.increasing:
+        elif not hasattr(self.hparams, 'increasing') or not self.hparams.increasing:
             if self.hparams.distortion == "None":
                 self.train_set_transform = ImageNetBaseTransformContrastive(self.hparams)
                 self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
@@ -315,37 +315,35 @@ class NoisyCLIP(LightningModule):
 
     # Default dataloaders - can be overwritten by datamodule.
     def train_dataloader(self):
-        if hasattribute(self.hparams, increasing) and self.hparams.increasing:
-            datatf = ImageNetDistortTrainContrastive(self.hparams, self.current_epoch)
+        if hasattr(self.hparams, 'increasing') and self.hparams.increasing:
+            datatf = ImageNetDistortTrainContrastive(self.hparams, epoch=self.current_epoch)
         else:
             datatf = self.train_set_transform
 
-        if self.hparams.dataset == "ImageNet100":
-            train_dataset = ImageNet100(
-                root=self.hparams.dataset_dir,
-                split = 'train',
-                transform = datatf
-            )
+        train_dataset = ImageNet100(
+            root=self.hparams.dataset_dir,
+            split = 'train',
+            transform = None
+        )
+        train_contrastive = ContrastiveUnsupervisedDataset(train_dataset, transform_contrastive=datatf, return_label=True)
 
-        train_dataloader = DataLoader(train_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
+        train_dataloader = DataLoader(train_contrastive, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
                                         pin_memory=True, shuffle=True)
 
         return train_dataloader
 
     def val_dataloader(self):
-        if hasattribute(self.hparams, increasing) and self.hparams.increasing:
-            datatf = ImageNetDistortVal(self.hparams, self.current_epoch)
+        if hasattr(self.hparams, 'increasing') and self.hparams.increasing:
+            datatf = ImageNetDistortVal(self.hparams, epoch=self.current_epoch)
         else:
             datatf = self.val_set_transform
 
-        if self.hparams.dataset == "ImageNet100":
-            val_dataset = ImageNet100(
-                root=self.hparams.dataset_dir,
-                split = 'val',
-                transform = datatf
-            )
-
-            self.N_val = 5000
+        val_dataset = ImageNet100(
+            root=self.hparams.dataset_dir,
+            split = 'val',
+            transform = datatf
+        )
+        self.N_val = len(val_dataset)
 
         val_dataloader = DataLoader(val_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
                                         pin_memory=True, shuffle=False)
@@ -370,11 +368,11 @@ def run_noisy_clip():
         version=args.experiment_name,
         name='NoisyCLIP_Logs'
     )
-    if not hasattribute(args, increasing) or not args.increasing:
+    if not hasattr(args, 'increasing') or not args.increasing:
         trainer = Trainer.from_argparse_args(args, logger=logger, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])
         trainer.fit(model, datamodule=dataset)
     else:
-        trainer = Trainer.from_argparse_args(args, logger=logger, reload_dataloaders=True, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])
+        trainer = Trainer.from_argparse_args(args, logger=logger, reload_dataloaders_every_epoch=True, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])
         trainer.fit(model)
 
 def grab_config():

@@ -13,7 +13,7 @@ def convnoise(x, epoch=None):
     if epoch is None:
         return x
     else:
-        return 0.9*x*(1-np.exp(epoch/5)) + 0.1*x
+        return 0.9*x*(1-np.exp(-epoch/5)) + 0.1*x
 
 class RandomMask(object):
     """
@@ -348,7 +348,7 @@ class ImageNetDistortVal:
     For validation, this class will always crop from the center of the image and NOT apply a random horizontal flip.
     Can pass a fixed distortion from a previously-initialized training distortive transform.
     """
-    def __init__(self, args, fixed_distortion=None):
+    def __init__(self, args, fixed_distortion=None, epoch=None):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
                 mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
