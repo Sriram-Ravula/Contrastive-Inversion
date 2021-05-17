@@ -44,8 +44,6 @@ class ImageNet100Test(LightningDataModule):
     def predict_dataloader(self):
         return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, worker_init_fn=(lambda wid: np.random.seed(int(torch.rand(1)[0]*1e6) + wid)), pin_memory=True, shuffle=False)
 
-
-
 def grab_config():
     parser = argparse.ArgumentParser(description="NoisyCLIP")
 
@@ -70,7 +68,7 @@ def noise_level_eval():
         version=args.experiment_name,
         name='NoisyCLIP_Logs'
     )
-    trainer = Trainer.from_argparse_args(args, logger=logger)
+    trainer = Trainer.from_argparse_args(args, logger=logger, progress_bar_refresh_rate=0)
 
     for noise_level in args.noise_levels:
         all_results = []
@@ -97,10 +95,12 @@ def noise_level_eval():
             test_data = ImageNet100Test(args)
             results = trainer.test(model=saved_model, datamodule=test_data, verbose=False)
             all_results.extend(results)
+
+            print("Done with " + str(noise_level))
     
         top1_accs = [x['test_top_1'] for x in all_results]
         top5_accs = [x['test_top_5'] for x in all_results]
-        with open(os.path.join(args.results_dir, 'ood_noise_level_{0:}.out'.format(int(100*noise_level))), 'w') as f:
+        with open(os.path.join(args.results_dir, 'ood_noise_level_{0:}.out'.format(int(100*noise_level))), 'w+') as f:
             f.write('Top 1 mean\t{0:.4f}\n'.format(np.mean(top1_accs)))
             f.write('Top 1 std\t{0:.4f}\n'.format(np.std(top1_accs, ddof=1)))
             f.write('Top 1 stderr\t{0:.4f}\n'.format(np.std(top1_accs, ddof=1)/np.sqrt(args.num_tests)))

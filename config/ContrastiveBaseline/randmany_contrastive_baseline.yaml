@@ -1,0 +1,42 @@
+seed: 1234
+
+num_nodes: 1
+gpus: 4
+workers: 12
+
+distributed_backend: "dp"
+
+encoder: "resnet"
+resnet_model: "101"
+
+dataset: "Imagenet-100"
+num_classes: 100
+subset_file_name: "imagenet100.txt"
+
+dataset_dir: "/tmp/ImageNet100"
+logdir: "/tmp/Logs"
+
+lr: 0.0003
+weight_decay: 0.0001
+loss_tau: 0.1
+
+#########################################################
+
+experiment_name: "RANDMANY_RN101_CONTRASTIVE_STUDENT_200"
+
+batch_size: 200
+
+loss_type: "simclr"
+
+distortion: "randommask"
+fixed_mask: False
+percent_missing: [0.5,0.95]
+
+#training
+max_epochs: 25
+log_save_interval: 1 
+row_log_interval: 1
+sync_bn: True
+
+#validation
+check_val_every_n_epoch: 1
