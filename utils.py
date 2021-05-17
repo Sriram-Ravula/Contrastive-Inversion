@@ -8,6 +8,13 @@ from torch.utils.data.dataset import Dataset, Subset
 from torchvision.datasets import ImageFolder
 from torchvision.datasets.folder import make_dataset
 
+
+def convnoise(x, epoch=None):
+    if epoch is None:
+        return x
+    else:
+        return 0.9*x*(1-np.exp(epoch/5)) + 0.1*x
+
 class RandomMask(object):
     """
     Custom Torchvision transform meant to be used on image data with dimension (N, C, H, W).
@@ -114,7 +121,7 @@ class GaussianNoise(object):
     Torchvision transform to add random Gaussian noise to an input image.
 
     Arguments:
-        std - the standard deviation of the random noise to add to the image. 
+        std - the standard deviation of the random noise to add to the image.
               Can be a list of [low, high] to choose uniformly randomly in [low, high]
         fixed - whether or not the noise we are adding is fixed for all images
     """
@@ -225,7 +232,7 @@ class ImageNetDistortTrainContrastive:
     For training, this class will apply a random crop and random horizontal flip as well.
     This explicitly returns a pair of images (clean, noisy) with the same random crop and flip for both.
     """
-    def __init__(self, args):
+    def __init__(self, args, epoch=None):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
                 mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
@@ -239,9 +246,9 @@ class ImageNetDistortTrainContrastive:
         if args.distortion == "squaremask":
             distortion = SquareMask(length=args.length, offset=args.offset, fixed = args.fixed_mask)
         elif args.distortion == "randommask":
-            distortion = RandomMask(percent_missing=args.percent_missing, fixed = args.fixed_mask)
+            distortion = RandomMask(percent_missing=convnoise(args.percent_missing,epoch), fixed = args.fixed_mask)
         elif args.distortion == "gaussiannoise":
-            distortion = GaussianNoise(std=args.std, fixed=args.fixed_mask)
+            distortion = GaussianNoise(std=convnoise(args.std,epoch), fixed=args.fixed_mask)
         elif args.distortion == "gaussianblur":
             distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
         self.distortion = distortion
@@ -261,7 +268,7 @@ class ImageNetDistortTrainContrastive:
 class ImageNetDistortValContrastive:
     """
     Torchvision composition of transforms to produce ImageNet images with a distortion.
-    For validation, there is a deterministic resizing and center crop. 
+    For validation, there is a deterministic resizing and center crop.
     This explicitly returns a pair of images (clean, noisy).
     """
     def __init__(self, args):
@@ -304,7 +311,7 @@ class ImageNetDistortTrain:
     For training, this class will apply a random crop and random horizontal flip as well.
     Explicitly saves the distortion as a class variable to use for fixed masks in validation transform if needed.
     """
-    def __init__(self, args):
+    def __init__(self, args, epoch=None):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
                 mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
@@ -317,9 +324,9 @@ class ImageNetDistortTrain:
         if args.distortion == "squaremask":
             distortion = SquareMask(length=args.length, offset=args.offset, fixed = args.fixed_mask)
         elif args.distortion == "randommask":
-            distortion = RandomMask(percent_missing=args.percent_missing, fixed = args.fixed_mask)
+            distortion = RandomMask(percent_missing=convnoise(args.percent_missing, epoch), fixed = args.fixed_mask)
         elif args.distortion == "gaussiannoise":
-            distortion = GaussianNoise(std=args.std, fixed=args.fixed_mask)
+            distortion = GaussianNoise(std=convnoise(args.std, epoch), fixed=args.fixed_mask)
         elif args.distortion == "gaussianblur":
             distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
 
@@ -339,7 +346,7 @@ class ImageNetDistortVal:
     """
     Torchvision composition of transforms to produce ImageNet images with a distortion.
     For validation, this class will always crop from the center of the image and NOT apply a random horizontal flip.
-    Can pass a fixed distortion from a previously-initialized training distortive transform. 
+    Can pass a fixed distortion from a previously-initialized training distortive transform.
     """
     def __init__(self, args, fixed_distortion=None):
         if args.encoder == "clip":
@@ -356,9 +363,9 @@ class ImageNetDistortVal:
         elif args.distortion == "squaremask":
             distortion = SquareMask(length=args.length, offset=args.offset, fixed = args.fixed_mask)
         elif args.distortion == "randommask":
-            distortion = RandomMask(percent_missing=args.percent_missing, fixed = args.fixed_mask)
+            distortion = RandomMask(percent_missing=convnoise(args.percent_missing, epoch), fixed = args.fixed_mask)
         elif args.distortion == "gaussiannoise":
-            distortion = GaussianNoise(std=args.std, fixed=args.fixed_mask)
+            distortion = GaussianNoise(std=convnoise(args.std, epoch), fixed=args.fixed_mask)
         elif args.distortion == "gaussianblur":
             distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
 
@@ -376,7 +383,7 @@ class ImageNetDistortVal:
 
 class ImageNetDistortTrainMulti:
     """
-    Applies a series of transforms to an image: 
+    Applies a series of transforms to an image:
     Random Crop to 224x224, Random horizontal clip p=0.5,
     Random color jitter p=0.8 (max adjustment for: brightness=0.4, contrast=0.4, saturation=0.2, hue=0.1),
     Random Gaussian Blur p=0.1 (kernel 23x23, std unformly random in [0.1, 0.2]),
@@ -394,7 +401,7 @@ class ImageNetDistortTrainMulti:
             normalize = transforms.Normalize(
                 mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
             )
-        
+
         randcrop = transforms.RandomResizedCrop(224)
 
         randflip = transforms.RandomHorizontalFlip()
@@ -427,7 +434,7 @@ class ImageNetDistortTrainMulti:
 
 class ImageNetDistortValMulti:
     """
-    Applies a series of transforms to an image: 
+    Applies a series of transforms to an image:
     Resize to 256x256, Center crop to 224x224,
     Random color jitter p=0.8 (max adjustment for: brightness=0.4, contrast=0.4, saturation=0.2, hue=0.1),
     Random Gaussian Blur p=0.1 (kernel 23x23, std unformly random in [0.1, 0.2]),
@@ -494,7 +501,7 @@ class ImageNetDistortTrainMultiContrastive:
             normalize = transforms.Normalize(
                 mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
             )
-        
+
         randcrop = transforms.RandomResizedCrop(224)
 
         randflip = transforms.RandomHorizontalFlip()
@@ -559,7 +566,7 @@ class ImageNetDistortValMultiContrastive:
             normalize = transforms.Normalize(
                 mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
             )
-        
+
         randcrop = transforms.RandomResizedCrop(224)
 
         randflip = transforms.RandomHorizontalFlip()
@@ -779,7 +786,7 @@ def few_shot_dataset(dataset, num_samples, n_classes=100):
         dataset - the torch dataset to subset
         num_samples - the number of samples to keep in each class
         n_classes - the number of classes in the given dataset
-    
+
     Returns:
         few_shot_subset - the dataset with the few samples per class kept
     """

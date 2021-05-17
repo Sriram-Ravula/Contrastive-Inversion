@@ -130,6 +130,26 @@ class NoisyCLIP(LightningModule):
         else:
             raise NotImplementedError('Handling of the dataset not implemented yet.')
 
+        #Set up the dataset
+        #Here, we use a 100-class subset of ImageNet
+        if self.hparams.dataset != "ImageNet100":
+            raise ValueError("Unsupported dataset selected.")
+        elif not hasattribute(self.hparams, increasing) or not self.hparams.increasing:
+            if self.hparams.distortion == "None":
+                self.train_set_transform = ImageNetBaseTransformContrastive(self.hparams)
+                self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
+            elif self.hparams.distortion == "multi":
+                self.train_set_transform = ImageNetDistortTrainMultiContrastive(self.hparams)
+                self.val_set_transform = ImageNetDistortValMulti(self.hparams)
+            else:
+                #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed!
+                self.train_set_transform = ImageNetDistortTrainContrastive(self.hparams)
+
+                if self.hparams.fixed_mask:
+                    self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
+                else:
+                    self.val_set_transform = ImageNetDistortVal(self.hparams)
+
         #(2) set up the teacher CLIP network - freeze it and don't use gradients!
         self.logit_scale = self.hparams.logit_scale
         self.baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0]
@@ -293,6 +313,49 @@ class NoisyCLIP(LightningModule):
         self.val_top_1.reset()
         self.val_top_5.reset()
 
+    # Default dataloaders - can be overwritten by datamodule.
+    def train_dataloader(self):
+        if hasattribute(self.hparams, increasing) and self.hparams.increasing:
+            datatf = ImageNetDistortTrainContrastive(self.hparams, self.current_epoch)
+        else:
+            datatf = self.train_set_transform
+
+        if self.hparams.dataset == "ImageNet100":
+            train_dataset = ImageNet100(
+                root=self.hparams.dataset_dir,
+                split = 'train',
+                transform = datatf
+            )
+
+        train_dataloader = DataLoader(train_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
+                                        pin_memory=True, shuffle=True)
+
+        return train_dataloader
+
+    def val_dataloader(self):
+        if hasattribute(self.hparams, increasing) and self.hparams.increasing:
+            datatf = ImageNetDistortVal(self.hparams, self.current_epoch)
+        else:
+            datatf = self.val_set_transform
+
+        if self.hparams.dataset == "ImageNet100":
+            val_dataset = ImageNet100(
+                root=self.hparams.dataset_dir,
+                split = 'val',
+                transform = datatf
+            )
+
+            self.N_val = 5000
+
+        val_dataloader = DataLoader(val_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,\
+                                        pin_memory=True, shuffle=False)
+
+        return val_dataloader
+
+    def test_dataloader(self):
+        return self.val_dataloader()
+
+
 def run_noisy_clip():
     args = grab_config()
 
@@ -307,9 +370,12 @@ def run_noisy_clip():
         version=args.experiment_name,
         name='NoisyCLIP_Logs'
     )
-    trainer = Trainer.from_argparse_args(args, logger=logger, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])
-
-    trainer.fit(model, dataset)
+    if not hasattribute(args, increasing) or not args.increasing:
+        trainer = Trainer.from_argparse_args(args, logger=logger, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])
+        trainer.fit(model, datamodule=dataset)
+    else:
+        trainer = Trainer.from_argparse_args(args, logger=logger, reload_dataloaders=True, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])
+        trainer.fit(model)
 
 def grab_config():
     parser = argparse.ArgumentParser(description="NoisyCLIP")
