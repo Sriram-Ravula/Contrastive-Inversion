@@ -15,11 +15,11 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "CLIP_RANDMANY_NONFIXED_RESET_NOTRAIN"
+experiment_name: "CLIP_NOISEMANY"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
-distortion: "randommask" #randommask or squaremask
-percent_missing: [0.5, 0.95] #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
+distortion: "gaussiannoise" #randommask or squaremask
+std: [0.1, 0.3]
 fixed_mask: False
 
 #model - CHANGE BETWEEN RUNS

@@ -94,10 +94,12 @@ def noise_level_eval():
             test_data = ImageNet100Test(args)
             results = trainer.test(model=saved_model, datamodule=test_data, verbose=False)
             all_results.extend(results)
+
+            print("Done with " + str(noise_level))
     
         top1_accs = [x['test_top_1'] for x in all_results]
         top5_accs = [x['test_top_5'] for x in all_results]
-        with open(os.path.join(args.results_dir, 'noise_level_{0:}.out'.format(int(100*noise_level))), 'w') as f:
+        with open(os.path.join(args.results_dir, 'noise_level_{0:}.out'.format(int(100*noise_level))), 'w+') as f:
             f.write('Top 1 mean\t{0:.4f}\n'.format(np.mean(top1_accs)))
             f.write('Top 1 std\t{0:.4f}\n'.format(np.std(top1_accs, ddof=1)))
             f.write('Top 1 stderr\t{0:.4f}\n'.format(np.std(top1_accs, ddof=1)/np.sqrt(args.num_tests)))

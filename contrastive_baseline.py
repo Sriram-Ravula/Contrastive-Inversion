@@ -19,6 +19,8 @@ from pytorch_lightning import Trainer, LightningModule, LightningDataModule, see
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.metrics import Accuracy
+from pytorch_lightning.callbacks import ModelCheckpoint
+
 from torch.utils.data  import random_split, DataLoader
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 
@@ -60,6 +62,9 @@ class ImageNetCLIPDataset(LightningDataModule):
         if self.hparams.distortion == "None":
             self.train_set_transform = ImageNetBaseTrainContrastive(self.hparams)
             self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
+        elif self.hparams.distortion == 'multi':
+            self.train_set_transform = ImageNetDistortTrainMultiContrastive(self.hparams)
+            self.val_set_transform = ImageNetDistortValMultiContrastive(self.hparams)
         else:
             #set up the training transform and if we want a fixed mask, transfer the same mask to the validation transform
             self.train_set_transform = ImageNetDistortTrainContrastive(self.hparams)
@@ -90,6 +95,9 @@ class ImageNetCLIPDataset(LightningDataModule):
     def val_dataloader(self):
         return DataLoader(self.val_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
     
+    def test_dataloader(self):
+        return DataLoader(self.val_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
+    
 class RESNET_contrastive(nn.Module):
     def __init__(self, args):
         super(RESNET_contrastive, self).__init__()
@@ -107,10 +115,7 @@ class RESNET_contrastive(nn.Module):
     def forward(self, x):
         features = self.feature_extractor(x).flatten(1)
 
-        if self.args.precision == 16:
-            return torch.clamp(features, min=1e-4)
-        else:
-            return features
+        return features
 
 class NoisyContrastiveBaseline(LightningModule):
     def __init__(self, args):
@@ -200,10 +205,7 @@ class NoisyContrastiveBaseline(LightningModule):
 
 
     def configure_optimizers(self):
-        if self.hparams.precision == 16:
-            opt = torch.optim.Adam(self.student.parameters(), lr = self.hparams.lr, eps=1e-4)
-        else:
-            opt = torch.optim.Adam(self.student.parameters(), lr = self.hparams.lr)
+        opt = torch.optim.Adam(self.student.parameters(), lr = self.hparams.lr)
 
         num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus) #divide N_train by number of distributed iters
 
@@ -291,11 +293,11 @@ def run_noisy_student():
     model = NoisyContrastiveBaseline(args)
 
     logger = TensorBoardLogger(
-        save_dir=args.logdir,
+        save_dir= args.logdir,
         version=args.experiment_name,
-        name='Logs'
+        name='Contrastive-Inversion'
     )
-    trainer = Trainer.from_argparse_args(args, logger=logger)
+    trainer = Trainer.from_argparse_args(args, logger=logger, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])      
 
     trainer.fit(model, dataset)
 
