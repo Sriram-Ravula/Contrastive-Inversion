@@ -32,6 +32,10 @@ class LinearProbe(LightningModule):
             if self.hparams.distortion == "None":
                 self.train_set_transform = ImageNetBaseTransform(self.hparams)
                 self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
+            elif self.hparams.distortion == "multi":
+                self.train_set_transform = ImageNetDistortTrainMulti(self.hparams)
+                self.val_set_transform = ImageNetDistortValMulti(self.hparams)
+
             else:
                 #If we are using the ImageNet dataset, then set up the train and val sets to use the same mask if needed!
                 self.train_set_transform = ImageNetDistortTrain(self.hparams)

@@ -191,7 +191,7 @@ class NoisyCLIP(LightningModule):
             #Grab the two off-diagonal similarities
             part1 = torch.sum(torch.diag(logmat, diagonal=1)[np.arange(0,2*bsz,2)])
             part2 = torch.sum(torch.diag(logmat, diagonal=-1)[np.arange(0,2*bsz,2)])
-
+           
             #Take the mean of the two off-diagonals
             loss = (part1 + part2)/2
 
