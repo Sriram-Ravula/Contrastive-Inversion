@@ -691,6 +691,51 @@ class ImageNet100OOD(ImageFolder):
         self.samples = make_dataset(os.path.join(root, split), self.wnid_to_idx, extensions=('jpeg',))
         self.targets = [s[1] for s in self.samples]
 
+class ImageNet100C(ImageFolder):
+    """
+    Dataset for ImageNet100C. Majority of code taken from torchvision.datasets.ImageNet.
+    Works in a similar function and has similar semantics to the original class.
+    """
+    def __init__(self, root, distortion, sub_distortion, level, split='val', transform=None, **kwargs):
+        #checking stuff
+        root = os.path.expanduser(root)
+        data_root = os.path.join(root, distortion, sub_distortion, level)
+
+        if not os.path.isdir(data_root):
+            raise Exception("BAD PATH! DATASET DOES NOT EXIST!")
+
+        #contains our desired {wnid: class} dictionary
+        META_FILE = "meta.bin"
+
+        #initialize parameters from DatasetFolder
+        super(ImageNet100C, self).__init__(data_root, **kwargs)
+        self.root = data_root
+        self.split = split
+        self.transform = transform
+
+        #from the dataset folder class, we inherit two properties
+        #self.classes is a list of class names based on the folders present in our subset - actually wnids!
+        #self.class_to_idx is a dict {wnid: wnid_index} where wnid_index is a number from 0 to 99
+
+        #Load the {wnid: class_name} dictionary from meta.bin
+        wnid_to_classes = torch.load(os.path.join(root, META_FILE))[0]
+        self.wnids = self.classes #current self.classes is actually wnids!
+        self.wnid_to_idx = self.class_to_idx
+        self.classes = [wnid_to_classes[wnid] for wnid in self.wnids] #get the actual class names (e.g. "bird")
+        self.class_to_idx = {cls: idx
+                             for idx, clss in enumerate(self.classes)
+                             for cls in clss}
+
+        #create a dictionary of UNIQUE {index: class values} where the class is the simplest form of the wnid (e.g. common name and not scientific name)
+        #this is for CLIP zero-shot classification using the simplest class name
+        self.idx_to_class = {idx: cls
+                             for idx, clss in enumerate(self.classes)
+                             for i, cls in enumerate(clss) if i == 0}
+    
+    @property
+    def split_folder(self) -> str:
+        return self.root
+
 
 def img_grid(data):
     """
