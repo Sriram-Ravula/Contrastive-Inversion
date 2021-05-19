@@ -178,11 +178,13 @@ class NoisyCLIP(LightningModule):
         # Use the simclr style InfoNCE
         if self.hparams.loss_type == 'simclr':
             # Create similarity matrix between embeddings.
-            full_tensor = torch.cat([input1.unsqueeze(1),input2.unsqueeze(1)], dim=1).view(2*bsz, 1, -1)
-            tensor1 = full_tensor.expand(2*bsz,2*bsz,-1)
-            tensor2 = full_tensor.permute(1,0,2).expand(2*bsz,2*bsz,-1)
-            sim_mat = torch.nn.CosineSimilarity(dim=-1)(tensor1,tensor2)
-
+            full_tensor = torch.cat([input1.unsqueeze(1),input2.unsqueeze(1)], dim=1).view(2*bsz, -1)
+            #tensor1 = full_tensor.expand(2*bsz,2*bsz,-1)
+            #tensor2 = full_tensor.permute(1,0,2).expand(2*bsz,2*bsz,-1)
+            #sim_mat = torch.nn.CosineSimilarity(dim=-1)(tensor1,tensor2)
+            full_tensor = full_tensor / full_tensor.norm(dim=-1, keepdim=True)
+            sim_mat = full_tensor @ full_tensor.t()
+            print(torch.sum(sim_mat < 0))
             # Calculate logits used for the contrastive loss.
             exp_sim_mat = torch.exp(sim_mat/self.hparams.loss_tau)
             mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).type_as(exp_sim_mat)
