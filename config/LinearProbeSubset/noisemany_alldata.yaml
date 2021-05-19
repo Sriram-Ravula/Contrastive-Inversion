@@ -1,0 +1,41 @@
+#seed - SAME BETWEEN RUNS
+seed: 1234
+
+#data - SAME BETWEEN RUNS
+dataset_dir: "/tmp/imagenet100/"
+dataset: "ImageNet100"
+num_classes: 100
+emb_dim: 512
+
+#distributed training - SAME BETWEEN RUNS
+num_nodes: 1
+gpus: 4
+workers: 12
+distributed_backend: "ddp"
+
+###############################################
+
+#Experiment Stuff - CHANGE BETWEEN RUNS
+experiment_name: "noisemany_alldata"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/Noisy_RN101_noisemany/checkpoints/epoch=24-step=12374.ckpt"
+
+#Distortions and parameters - CHANGE BETWEEN RUNS
+distortion: "gaussiannoise" #randommask or squaremask
+std: [0.1,0.3] #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
+fixed_mask: False
+
+encoder: "clip"
+
+#training
+max_epochs: 10
+lr: 0.001
+batch_size: 128 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,
+use_subset: False
+
+#logging
+log_save_interval: 10 #set this to be equal to num_epochs if row_log_interval is 1
+row_log_interval: 1
+logdir: "/tmp/Logs"
+
+#validation
+check_val_every_n_epoch: 1
