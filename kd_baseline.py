@@ -19,35 +19,17 @@ from pytorch_lightning import Trainer, LightningModule, LightningDataModule, see
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.metrics import Accuracy
+from pytorch_lightning.callbacks import ModelCheckpoint
+
 from torch.utils.data  import random_split, DataLoader
+import torch.nn.functional as F
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 
-class ContrastiveUnsupervisedDataset(torch.utils.data.Dataset):
-    """
-    This class takes a dataset and creates a contrastive version of that dataset.
-    Each item of the dataset is a tuple of a clean image and a noisy image (two
-    separate transformations.)
-    """
-    def __init__(self, clean_dataset, transform_contrastive=None, return_label=False):
-        self.base = clean_dataset
-        self.transform_contrastive = transform_contrastive
-        self.return_label = return_label
-
-    def __len__(self):
-        return len(self.base)
-
-    def __getitem__(self, idx):
-        image_orig, label = self.base[idx]
-        image_clean, image_noisy = self.transform_contrastive(image_orig) if self.transform_contrastive is not None else (image_orig, image_orig)
-        if self.return_label:
-            return image_clean, image_noisy, label
-        else:
-            return image_clean, image_noisy
+from baselines import Baseline
 
 class ImageNetCLIPDataset(LightningDataModule):
     """
-    Wrapper class for the ImageNet dataset, handles all data manipulations
-    required in order to train the NoisyCLIP model.
+    Want this to return (clean img, distorted img, class#)
     """
     def __init__(self, args):
         super(ImageNetCLIPDataset, self).__init__()
@@ -60,6 +42,9 @@ class ImageNetCLIPDataset(LightningDataModule):
         if self.hparams.distortion == "None":
             self.train_set_transform = ImageNetBaseTrainContrastive(self.hparams)
             self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
+        elif self.hparams.distortion == 'multi':
+            self.train_set_transform = ImageNetDistortTrainMultiContrastive(self.hparams)
+            self.val_set_transform = ImageNetDistortValMulti(self.hparams)
         else:
             #set up the training transform and if we want a fixed mask, transfer the same mask to the validation transform
             self.train_set_transform = ImageNetDistortTrainContrastive(self.hparams)
@@ -67,65 +52,32 @@ class ImageNetCLIPDataset(LightningDataModule):
             if self.hparams.fixed_mask:
                 self.val_set_transform = ImageNetDistortVal(self.hparams, fixed_distortion=self.train_set_transform.distortion)
             else:
-                self.val_set_transform = ImageNetDistortValContrastive(self.hparams)
+                self.val_set_transform = ImageNetDistortVal(self.hparams)
 
     def setup(self, stage=None):
         train_data = ImageNet100(
         	root=self.hparams.dataset_dir,
             split="train",
-            transform=None
+            transform=self.train_set_transform
         )
         val_data = ImageNet100(
             root=self.hparams.dataset_dir,
             split="val",
-            transform=None
+            transform=self.val_set_transform
         )
 
-        self.train_contrastive = ContrastiveUnsupervisedDataset(train_data, transform_contrastive=self.train_set_transform)
-        self.val_contrastive = ContrastiveUnsupervisedDataset(val_data, transform_contrastive=self.val_set_transform)
-
     def train_dataloader(self):
-        return DataLoader(self.train_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=True)
+        return DataLoader(self.train_data, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_contrastive, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
+        return DataLoader(self.val_data, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
     
-class RESNET_contrastive(nn.Module):
+    def test_dataloader(self):
+        return DataLoader(self.val_data, batch_size=self.batch_size, num_workers=self.hparams.workers, pin_memory=True, shuffle=False)
+
+class KDBaseline(LightningModule):
     def __init__(self, args):
-        super(RESNET_contrastive, self).__init__()
-
-        self.args = args
-
-        if args.resnet_model == "50":
-            backbone = models.resnet50(pretrained=True)
-        elif args.resnet_model == "101":
-            backbone = models.resnet101(pretrained=True)
-        
-        layers = list(backbone.children())[:-1]
-        self.feature_extractor = nn.Sequential(*layers)
-
-    def forward(self, x):
-        features = self.feature_extractor(x).flatten(1)
-
-        if self.args.precision == 16:
-            return torch.clamp(features, min=1e-4)
-        else:
-            return features
-
-class NoisyContrastiveBaseline(LightningModule):
-    def __init__(self, args):
-        """
-        A class that trains a ResNet101 in a student-teacher fashion to classify distorted images.
-
-        Given two identical pre-trained networks, Teacher - T() and Student S(), we freeze T() and train S().
-
-        Given a batch of {x1, x2, ..., xN}, apply a given distortion to each one to obtain noisy images {y1, y2, ..., yN}.
-
-        Feed original images to T() and obtain embeddings {T(x1), ..., T(xN)} and feed distorted images to S() and obtain embeddings {S(y1), ..., S(yN)}.
-
-        Maximize the similarity between the pairs {(T(x1), S(y1)), ..., (T(xN), S(yN))} while minimizing the similarity between all non-matched pairs.
-        """
-        super(NoisyContrastiveBaseline, self).__init__()
+        super(KDBaseline, self).__init__()
         self.hparams = args
         self.world_size = self.hparams.num_nodes * self.hparams.gpus
 
@@ -137,73 +89,41 @@ class NoisyContrastiveBaseline(LightningModule):
 
         #(2) set up the teacher RN network - freeze it and don't use gradients!
         #Grab the correct Resnet model
-        self.teacher = RESNET_contrastive(self.hparams)
+        self.teacher = Baseline.load_from_checkpoint(args.checkpoint_path)
+        self.teacher = self.teacher.encoder
         self.teacher.eval()
         self.teacher.requires_grad_(False)
 
         #(3) set up the student CLIP network - unfreeze it and use gradients!
-        self.student = RESNET_contrastive(self.hparams)
+        self.student = Baseline.load_from_checkpoint(args.checkpoint_path)
+        self.student = self.student.encoder
         self.student.train()
         self.student.requires_grad_(True)
 
-    def criterion(self, input1, input2, reduction='mean'):
+        #Set up losses and stuff
+        label_loss = nn.CrossEntropyLoss(reduction = "mean")
+        
+
+    def criterion(self, teacher_prediction, student_prediction, label):
         """
-        Args:
-            input1: Embeddings of the clean/noisy images from the teacher/student. Size [N, embedding_dim].
-            input2: Embeddings of the clean/noisy images from the teacher/student (the ones not used as input1). Size [N, embedding_dim].
-            reduction: how to scale the final loss
+        Compute the knowledge-distillation (KD) loss given outputs, labels.
+        "Hyperparameters": temperature and alpha
+
+        NOTE: the KL Divergence for PyTorch comparing the softmaxs of teacher
+        and student expects the input tensor to be log probabilities! See Issue #2
         """
-        bsz = input1.shape[0]
+        alpha = self.hparams.alpha
+        T = self.hparams.temperature
 
-        #Use the simclr style InfoNCE
-        if self.hparams.loss_type == 'simclr':
-            # Create similarity matrix between embeddings.
-            full_tensor = torch.cat([input1.unsqueeze(1),input2.unsqueeze(1)], dim=1).view(2*bsz, 1, -1)
-            tensor1 = full_tensor.expand(2*bsz,2*bsz,-1)
-            tensor2 = full_tensor.permute(1,0,2).expand(2*bsz,2*bsz,-1)
-            sim_mat = torch.nn.CosineSimilarity(dim=-1)(tensor1,tensor2)
+        KD_loss = nn.KLDivLoss()(F.log_softmax(student_prediction/T, dim=1),
+                                F.softmax(teacher_prediction/T, dim=1)) * (alpha * T * T) + \
+                F.cross_entropy(student_prediction, labels) * (1. - alpha)
 
-            # Calculate logits used for the contrastive loss.
-            exp_sim_mat = torch.exp(sim_mat/self.hparams.loss_tau)
-            mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).type_as(exp_sim_mat)
-            logmat = -torch.log(exp_sim_mat)+torch.log(torch.sum(mask*exp_sim_mat, 1))
-
-            #Grab the two off-diagonal similarities
-            part1 = torch.sum(torch.diag(logmat, diagonal=1)[np.arange(0,2*bsz,2)])
-            part2 = torch.sum(torch.diag(logmat, diagonal=-1)[np.arange(0,2*bsz,2)])
-
-            #Take the mean of the two off-diagonals
-            loss = (part1 + part2)/2
-
-        #Use the CLIP-style InfoNCE
-        elif self.hparams.loss_type == 'clip':
-            # Create similarity matrix between embeddings.
-            tensor1 = input1 / input1.norm(dim=-1, keepdim=True)
-            tensor2 = input2 / input2.norm(dim=-1, keepdim=True)
-            sim_mat = (1/self.hparams.loss_tau)*tensor1 @ tensor2.t()
-
-            #Calculate the cross entropy between the similarities of the positive pairs, counted two ways
-            part1 = F.cross_entropy(sim_mat, torch.LongTensor(np.arange(bsz)).type_as(input1))
-            part2 = F.cross_entropy(sim_mat.t(), torch.LongTensor(np.arange(bsz)).type_as(input1))
-
-            #Take the mean of the two off-diagonals
-            loss = (part1+part2)/2
-
-        #Take the simple MSE between the clean and noisy embeddings
-        elif self.hparams.loss_type == 'mse':
-            return F.mse_loss(input2, input1)
-
-        else:
-            raise ValueError('Loss function not understood.')
-
-        return loss/bsz if reduction == 'mean' else loss
+        return KD_loss
 
 
     def configure_optimizers(self):
-        if self.hparams.precision == 16:
-            opt = torch.optim.Adam(self.student.parameters(), lr = self.hparams.lr, eps=1e-4)
-        else:
-            opt = torch.optim.Adam(self.student.parameters(), lr = self.hparams.lr)
+        opt = torch.optim.Adam(self.student.parameters(), lr = self.hparams.lr)
 
         num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus) #divide N_train by number of distributed iters
 
@@ -288,14 +208,14 @@ def run_noisy_student():
 
     dataset = ImageNetCLIPDataset(args)
     dataset.setup()
-    model = NoisyContrastiveBaseline(args)
+    model = KDBaseline(args)
 
     logger = TensorBoardLogger(
-        save_dir=args.logdir,
+        save_dir= args.logdir,
         version=args.experiment_name,
-        name='Logs'
+        name='Contrastive-Inversion'
     )
-    trainer = Trainer.from_argparse_args(args, logger=logger)
+    trainer = Trainer.from_argparse_args(args, logger=logger, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])      
 
     trainer.fit(model, dataset)
 
