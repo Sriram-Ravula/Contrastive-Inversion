@@ -40,10 +40,7 @@ class ImageNet100CTest(LightningDataModule):
 
         self.dataset_dir = self.hparams.dataset_dir
 
-        if self.hparams.distortion == "None":
-            self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
-        else:
-            self.val_set_transform = ImageNetDistortVal(self.hparams)
+        self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
 
     def setup(self, stage=None):
         self.val_data = ImageNet100C(
@@ -84,6 +81,9 @@ def noise_level_eval():
     )
     trainer = Trainer.from_argparse_args(args, logger=logger)
 
+    if not os.path.exists(os.path.join(args.results_dir, args.experiment_name)):
+        os.mkdir(os.path.join(args.results_dir, args.experiment_name))
+
     for distortion in DISTORTIONS:
         print(distortion)
         for sub_distortion in SUB_DISTORTIONS[distortion]:
@@ -91,8 +91,8 @@ def noise_level_eval():
             top_1_list = []
             top_5_list = []
 
-            if not os.path.exists(os.path.join(args.results_dir, distortion)):
-                os.makedirs(os.path.join(args.results_dir, distortion))
+            if not os.path.exists(os.path.join(args.results_dir, args.experiment_name, distortion)):
+                os.makedirs(os.path.join(args.results_dir, args.experiment_name, distortion))
 
             for level in LEVELS:
                 print(level)
@@ -116,10 +116,10 @@ def noise_level_eval():
                 top_1_list.extend([top1_accs])
                 top_5_list.extend([top5_accs])
 
-                with open(os.path.join(args.results_dir, distortion, sub_distortion + '.out'), 'a+') as f:
+                with open(os.path.join(args.results_dir, args.experiment_name, distortion, sub_distortion + '.out'), 'a+') as f:
                     f.write(level + ':\t{0:.4f}'.format(top1_accs) + '\t{0:.4f}\n'.format(top5_accs))
 
-            with open(os.path.join(args.results_dir, distortion, sub_distortion + '.out'), 'a+') as f:
+            with open(os.path.join(args.results_dir, args.experiment_name, distortion, sub_distortion + '.out'), 'a+') as f:
                 f.write('MEAN:\t{0:.4f}\t{1:.4f}\n'.format(np.mean(top_1_list), np.mean(top_5_list)))
 
 if __name__ == "__main__":

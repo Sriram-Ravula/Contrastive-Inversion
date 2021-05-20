@@ -80,7 +80,7 @@ class LinearProbe(LightningModule):
         return self.output(noisy_embeddings.float())
 
     def configure_optimizers(self):
-        opt = torch.optim.Adam(self.output.parameters(), lr = self.hparams.lr)
+        opt = torch.optim.Adam(self.output.parameters(), lr = self.hparams.lr, weight_decay = self.hparams.weight_decay)
 
         if self.hparams.dataset == "ImageNet100":
             num_steps = 126689//(self.hparams.batch_size * self.hparams.gpus) #divide N_train by number of distributed iters
