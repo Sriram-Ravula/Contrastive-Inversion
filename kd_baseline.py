@@ -55,12 +55,12 @@ class ImageNetCLIPDataset(LightningDataModule):
                 self.val_set_transform = ImageNetDistortVal(self.hparams)
 
     def setup(self, stage=None):
-        train_data = ImageNet100(
+        self.train_data = ImageNet100(
         	root=self.hparams.dataset_dir,
             split="train",
             transform=self.train_set_transform
         )
-        val_data = ImageNet100(
+        self.val_data = ImageNet100(
             root=self.hparams.dataset_dir,
             split="val",
             transform=self.val_set_transform
@@ -89,24 +89,35 @@ class KDBaseline(LightningModule):
 
         #(2) set up the teacher RN network - freeze it and don't use gradients!
         #Grab the correct Resnet model
-        self.teacher = Baseline.load_from_checkpoint(args.checkpoint_path)
-        self.teacher = self.teacher.encoder
+        teacher = Baseline.load_from_checkpoint(args.checkpoint_path)
+        self.teacher = teacher.encoder
         self.teacher.eval()
         self.teacher.requires_grad_(False)
 
         #(3) set up the student CLIP network - unfreeze it and use gradients!
-        self.student = Baseline.load_from_checkpoint(args.checkpoint_path)
-        self.student = self.student.encoder
+        student = Baseline.load_from_checkpoint(args.checkpoint_path)
+        self.student = student.encoder
         self.student.train()
         self.student.requires_grad_(True)
 
         #Set up losses and stuff
-        label_loss = nn.CrossEntropyLoss(reduction = "mean")
+        self.supervised_loss = nn.CrossEntropyLoss(reduction = "sum")
+        self.distillation_loss = nn.KLDivLoss(reduction='batchmean')
+
+
+        self.train_top_1 = Accuracy(top_k=1)
+        self.train_top_5 = Accuracy(top_k=5)
+
+        self.val_top_1 = Accuracy(top_k=1)
+        self.val_top_5 = Accuracy(top_k=5)
+
+        self.test_top_1 = Accuracy(top_k=1)
+        self.test_top_5 = Accuracy(top_k=5)
         
 
     def criterion(self, teacher_prediction, student_prediction, label):
         """
-        Compute the knowledge-distillation (KD) loss given outputs, labels.
+        Compute the knowledge-distillation (KD) loss given outputs as logits, labels.
         "Hyperparameters": temperature and alpha
 
         NOTE: the KL Divergence for PyTorch comparing the softmaxs of teacher
@@ -115,12 +126,11 @@ class KDBaseline(LightningModule):
         alpha = self.hparams.alpha
         T = self.hparams.temperature
 
-        KD_loss = nn.KLDivLoss()(F.log_softmax(student_prediction/T, dim=1),
+        KD_loss = nn.KLDivLoss(reduction='batchmean')(F.log_softmax(student_prediction/T, dim=1),
                                 F.softmax(teacher_prediction/T, dim=1)) * (alpha * T * T) + \
-                F.cross_entropy(student_prediction, labels) * (1. - alpha)
+                F.cross_entropy(student_prediction, label) * (1. - alpha)
 
         return KD_loss
-
 
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.student.parameters(), lr = self.hparams.lr)
@@ -131,75 +141,80 @@ class KDBaseline(LightningModule):
 
         return [opt], [scheduler]
 
-    def encode_noisy_image(self, image):
-        """
-        Return S(yi) where S() is the student network and yi is distorted images.
-        """
-
-        return self.student(image)
-
     def forward(self, image):
 
         return self.student(image)
 
     # Training methods - here we are concerned with contrastive loss (or MSE) between clean and noisy image embeddings.
     def training_step(self, train_batch, batch_idx):
-        """
-        Takes a batch of clean and noisy images and returns their respective embeddings.
+        image_clean, image_noisy = train_batch[0]
+        label = train_batch[1]
 
-        Returns:
-            embed_clean: T(xi) where T() is the teacher and xi are clean images. Shape [N, embed_dim]
-            embed_noisy: S(yi) where S() is the student and yi are noisy images. Shape [N, embed_dim]
-        """
-        image_clean, image_noisy = train_batch
+        if batch_idx == 0 and self.current_epoch == 0:
+            self.logger.experiment.add_image('Train_Sample_Noisy', img_grid(image_noisy), self.current_epoch)
+            self.logger.experiment.add_image('Train_Sample_Clean', img_grid(image_clean), self.current_epoch)
 
         self.teacher.eval()
         with torch.no_grad():
             embed_clean = self.teacher(image_clean).flatten(1)
 
-        embed_noisy = self.encode_noisy_image(image_noisy).flatten(1)
+        embed_noisy = self.forward(image_noisy).flatten(1)
 
-        return {'embed_clean': embed_clean, 'embed_noisy': embed_noisy}
+        pred_probs = embed_noisy.softmax(dim=-1)
 
-    def training_step_end(self, outputs):
-        """
-        Given all the clean and noisy image embeddings form across GPUs from training_step, gather them onto a single GPU and calculate overall loss.
-        """
-        embed_clean_full = outputs['embed_clean']
-        embed_noisy_full = outputs['embed_noisy']
+        loss = self.criterion(embed_clean, embed_noisy, label)
 
-        loss = self.criterion(embed_clean_full, embed_noisy_full)
-
-        self.log('train_loss', loss, prog_bar=True, logger=True, sync_dist=True, on_step=True, on_epoch=True)
+        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True, logger=True, sync_dist=True, sync_dist_op='sum')
+        self.log("train_top_1", self.train_top_1(pred_probs, label), prog_bar=False, logger=False)
+        self.log("train_top_5", self.train_top_5(pred_probs, label), prog_bar=False, logger=False)
 
         return loss
 
+    def training_epoch_end(self, outputs):
+        self.log("train_top_1", self.train_top_1.compute(), prog_bar=True, logger=True)
+        self.log("train_top_5", self.train_top_5.compute(), prog_bar=True, logger=True)
+
+        self.train_top_1.reset()
+        self.train_top_5.reset()
+
     # Validation methods - here we are concerned with similarity between noisy image embeddings and classification text embeddings.
     def validation_step(self, val_batch, batch_idx):
-        """
-        Grab the noisy image embeddings: S(yi), where S() is the student and yi = Distort(xi). Done on each GPU.
-        Return these to be evaluated in validation step end.
-        """
-        image_clean, image_noisy = val_batch
+        image_noisy, label = val_batch
 
-        with torch.no_grad():
-            embed_clean = self.teacher(image_clean).flatten(1)
+        if batch_idx == 0 and self.current_epoch == 0:
+            self.logger.experiment.add_image('Val_Sample_Noisy', img_grid(image_noisy), self.current_epoch)
 
-            embed_noisy = self.encode_noisy_image(image_noisy).flatten(1)
+        embed_noisy = self.forward(image_noisy).flatten(1)
 
-        return {'embed_clean': embed_clean, 'embed_noisy': embed_noisy}
+        pred_probs = embed_noisy.softmax(dim=-1)
 
-    def validation_step_end(self, outputs):
-        """
-        Gather the noisy image features and their labels from each GPU.
-        Then calculate their similarities, convert to probabilities, and calculate accuracy on each GPU.
-        """
-        embed_clean_full = outputs['embed_clean']
-        embed_noisy_full = outputs['embed_noisy']
+        self.log("val_top_1", self.val_top_1(pred_probs, label), prog_bar=False, logger=False)
+        self.log("val_top_5", self.val_top_5(pred_probs, label), prog_bar=False, logger=False)
+    
+    def validation_epoch_end(self, outputs):
+        self.log("val_top_1", self.val_top_1.compute(), prog_bar=True, logger=True)
+        self.log("val_top_5", self.val_top_5.compute(), prog_bar=True, logger=True)
 
-        loss = self.criterion(embed_clean_full, embed_noisy_full)
+        self.val_top_1.reset()
+        self.val_top_5.reset()
 
-        self.log('val_simclr_loss', loss, prog_bar=True, logger=True, sync_dist=True, on_step=True, on_epoch=True)
+    def test_step(self, test_batch, batch_idx):
+        image_noisy, label = test_batch
+
+        embed_noisy = self.forward(image_noisy).flatten(1)
+
+        pred_probs = embed_noisy.softmax(dim=-1)
+
+        self.log("test_top_1", self.test_top_1(pred_probs, label), prog_bar=False, logger=False)
+        self.log("test_top_5", self.test_top_5(pred_probs, label), prog_bar=False, logger=False)
+    
+    def test_epoch_end(self, outputs):
+        self.log("test_top_1", self.test_top_1.compute(), prog_bar=True, logger=True)
+        self.log("test_top_5", self.test_top_5.compute(), prog_bar=True, logger=True)
+
+        self.test_top_1.reset()
+        self.test_top_5.reset()
+
 
 def run_noisy_student():
     args = grab_config()
