@@ -29,7 +29,6 @@ class BGMask(torch.nn.Module):
 		# Step 0: Move masking network to wherever the data lives
 		if self.sample_param.device != x.device:
 			self.masker.to(x.device)
-
 		# Step 1: identify background
 		# this is kinda voodoo, don't worry about it
 		singleton = False

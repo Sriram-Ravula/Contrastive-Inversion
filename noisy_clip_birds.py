@@ -116,7 +116,7 @@ class NoisyCLIPBirds(LightningModule):
 
         Maximize the similarity between the pairs {(T(x1), S(y1)), ..., (T(xN), S(yN))} while minimizing the similarity between all non-matched pairs.
         """
-        super(NoisyCLIP, self).__init__()
+        super(NoisyCLIPBirds, self).__init__()
         self.hparams = args
         self.world_size = self.hparams.num_nodes * self.hparams.gpus
 
@@ -270,7 +270,7 @@ def run_noisy_clip():
         trainer = Trainer.from_argparse_args(args, logger=logger, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])
         trainer.fit(model, datamodule=dataset)
     else:
-        trainer = Trainer.from_argparse_args(args, logger=logger, reload_dataloaders_every_epoch=True, callbacks=[ModelCheckpoint(save_top_k=-1, period=25)])
+        trainer = Trainer.from_argparse_args(args, logger=logger)
         trainer.fit(model)
 
 def grab_config():
