@@ -1,0 +1,38 @@
+#seed - SAME BETWEEN RUNS
+
+#data - SAME BETWEEN RUNS
+dataset_dir: "/tmp/ImageNet100"
+dataset: "ImageNet100"
+num_classes: 100
+emb_dim: 512
+
+#distributed training - SAME BETWEEN RUNS
+num_nodes: 1
+gpus: 4
+workers: 12
+#distributed_backend: "ddp"
+
+###############################################
+
+#Experiment Stuff - CHANGE BETWEEN RUNS
+experiment_name: "CONTRASTIVE_BASELINE_NOISEMANY_ID_SUBSET"
+checkpoint_path: "/work2/04703/sravula/maverick2/Logs/Contrastive-Inversion/RN101_CONTRASTIVE_NOISEMANY_LINEAR_SUBSET/checkpoints/epoch=6-step=174.ckpt"
+
+#Distortions and parameters - CHANGE BETWEEN RUNS
+distortion: "gaussiannoise" #randommask or squaremask
+noise_levels: [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+fixed_mask: False
+saved_model_type: "linear"
+num_tests: 10
+
+encoder: "resnet"
+
+#logging
+log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+row_log_interval: 1
+logdir: "/tmp/Logs"
+
+results_dir: '/tmp/results_contrastive_baseline'
+
+#validation
+check_val_every_n_epoch: 1

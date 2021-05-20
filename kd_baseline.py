@@ -97,13 +97,16 @@ class KDBaseline(LightningModule):
         #(3) set up the student CLIP network - unfreeze it and use gradients!
         student = Baseline.load_from_checkpoint(args.checkpoint_path)
         self.student = student.encoder
-        self.student.train()
-        self.student.requires_grad_(True)
+        self.student.args.freeze_backbone = False
+        for param in self.student.parameters():
+            param.requires_grad = True
 
         #Set up losses and stuff
-        self.supervised_loss = nn.CrossEntropyLoss(reduction = "sum")
-        self.distillation_loss = nn.KLDivLoss(reduction='sum')
+        self.supervised_loss = nn.CrossEntropyLoss(reduction = "mean")
+        self.distillation_loss = nn.KLDivLoss(reduction='batchmean')
 
+        self.log_sm = nn.LogSoftmax(dim=1)
+        self.sm = nn.Softmax(dim=1)
 
         self.train_top_1 = Accuracy(top_k=1)
         self.train_top_5 = Accuracy(top_k=5)
@@ -126,9 +129,11 @@ class KDBaseline(LightningModule):
         alpha = self.hparams.alpha
         T = self.hparams.temperature
 
-        KD_loss = nn.KLDivLoss(reduction='batchmean')(F.log_softmax(student_prediction/T, dim=1),
-                                F.softmax(teacher_prediction/T, dim=1)) * (alpha * T * T) + \
-                F.cross_entropy(student_prediction, label) * (1. - alpha)
+        inputs = self.log_sm(student_prediction/T)
+        targets = self.sm(teacher_prediction/T)
+
+        KD_loss = self.distillation_loss(inputs, targets) * (alpha * T * T) + \
+                self.supervised_loss(student_prediction, label) * (1. - alpha)
 
         return KD_loss
 

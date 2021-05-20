@@ -147,7 +147,7 @@ class GaussianNoise(object):
 
         return image + noise
 
-class CIFARBaseTransform:
+class GeneralBaseTransform:
     def __init__(self, args):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
@@ -168,7 +168,7 @@ class CIFARBaseTransform:
     def __call__(self, x):
         return self.transform(x)
 
-class CIFARBaseTransformVal:
+class GeneralBaseTransformVal:
     def __init__(self, args):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
