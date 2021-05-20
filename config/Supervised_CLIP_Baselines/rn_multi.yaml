@@ -15,7 +15,7 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "RN101_MULTI"
+experiment_name: "RN101_MULTI_2"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "multi" #randommask or squaremask

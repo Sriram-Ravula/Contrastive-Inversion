@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 import torch
 import torch.nn.functional as F
+import torchvision.models as models
 
 import torch.nn as nn
 
@@ -15,6 +16,7 @@ from pytorch_lightning.metrics import Accuracy
 from torch.utils.data  import DataLoader
 
 from noisy_clip_dataparallel import NoisyCLIP
+from contrastive_baseline import NoisyContrastiveBaseline
 
 class LinearProbe(LightningModule):
     """
@@ -46,9 +48,13 @@ class LinearProbe(LightningModule):
                     self.val_set_transform = ImageNetDistortVal(self.hparams)
 
         #This should be initialised as a trained student CLIP network
-        saved_student = NoisyCLIP.load_from_checkpoint(self.hparams.checkpoint_path)
+        if self.hparams.encoder == "clip":
+            saved_student = NoisyCLIP.load_from_checkpoint(self.hparams.checkpoint_path)
+            self.backbone = saved_student.noisy_visual_encoder
+        elif self.hparams.encoder == "resnet":
+            saved_student = NoisyContrastiveBaseline.load_from_checkpoint(self.hparams.checkpoint_path)
+            self.backbone = saved_student.student
 
-        self.backbone = saved_student.noisy_visual_encoder
         self.backbone.eval()
         for param in self.backbone.parameters():
             param.requires_grad = False
@@ -75,11 +81,17 @@ class LinearProbe(LightningModule):
         #Grab the noisy image embeddings
         self.backbone.eval()
         with torch.no_grad():
-            noisy_embeddings = self.backbone(x.type(torch.float16))
+            if self.hparams.encoder == "clip":
+                noisy_embeddings = self.backbone(x.type(torch.float16)).float()
+            elif self.hparams.encoder == "resnet":
+                noisy_embeddings = self.backbone(x)
 
-        return self.output(noisy_embeddings.float())
+        return self.output(noisy_embeddings)
 
     def configure_optimizers(self):
+        if not hasattr(self.hparams, 'weight_decay'):
+            self.hparams.weight_decay = 0
+
         opt = torch.optim.Adam(self.output.parameters(), lr = self.hparams.lr, weight_decay = self.hparams.weight_decay)
 
         if self.hparams.dataset == "ImageNet100":

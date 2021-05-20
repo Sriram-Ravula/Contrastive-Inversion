@@ -102,7 +102,7 @@ class KDBaseline(LightningModule):
 
         #Set up losses and stuff
         self.supervised_loss = nn.CrossEntropyLoss(reduction = "sum")
-        self.distillation_loss = nn.KLDivLoss(reduction='batchmean')
+        self.distillation_loss = nn.KLDivLoss(reduction='sum')
 
 
         self.train_top_1 = Accuracy(top_k=1)
