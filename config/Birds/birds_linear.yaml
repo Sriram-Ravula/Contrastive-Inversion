@@ -17,7 +17,7 @@ distributed_backend: "ddp"
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
 experiment_name: "birds"
-checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_Birds/birds/checkpoints/epoch=199-step=3799.ckpt"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_Birds/birds/checkpoints/epoch=49-step=949.ckpt"
 
 encoder: "clip"
 

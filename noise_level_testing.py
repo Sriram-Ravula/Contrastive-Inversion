@@ -58,7 +58,7 @@ def grab_config():
 
 def noise_level_eval():
     args = grab_config()
-    args.gpus = 1 # Force evaluation in a single gpu.
+    args.gpus = [3] # Force evaluation in a single gpu.
 
     seed_everything(42)
 
@@ -68,6 +68,9 @@ def noise_level_eval():
         name='NoisyCLIP_Logs'
     )
     trainer = Trainer.from_argparse_args(args, logger=logger, progress_bar_refresh_rate=0)
+    if not os.path.exists(os.path.join(args.results_dir, args.experiment_name)):
+        os.mkdir(os.path.join(args.results_dir, args.experiment_name))
+
 
     for noise_level in args.noise_levels:
         all_results = []
@@ -99,7 +102,7 @@ def noise_level_eval():
     
         top1_accs = [x['test_top_1'] for x in all_results]
         top5_accs = [x['test_top_5'] for x in all_results]
-        with open(os.path.join(args.results_dir, 'noise_level_{0:}.out'.format(int(100*noise_level))), 'w+') as f:
+        with open(os.path.join(args.results_dir, args.experiment_name, 'noise_level_{0:}.out'.format(int(100*noise_level))), 'w+') as f:
             f.write('Top 1 mean\t{0:.4f}\n'.format(np.mean(top1_accs)))
             f.write('Top 1 std\t{0:.4f}\n'.format(np.std(top1_accs, ddof=1)))
             f.write('Top 1 stderr\t{0:.4f}\n'.format(np.std(top1_accs, ddof=1)/np.sqrt(args.num_tests)))
