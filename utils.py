@@ -407,16 +407,16 @@ class ImageNetDistortTrainMulti:
         randflip = transforms.RandomHorizontalFlip()
 
         jitter = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
-        randjitter = transforms.RandomApply([jitter], p=0.8)
+        randjitter = transforms.RandomApply([jitter], p=0.5)
 
-        blur = transforms.GaussianBlur(kernel_size=23)
-        randblur = transforms.RandomApply([blur], p=0.1)
+        blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
+        randblur = transforms.RandomApply([blur], p=0.4)
 
-        noise = GaussianNoise(std=[0.1, 0.3], fixed=False)
-        randnoise = transforms.RandomApply([noise], p=0.2)
+        noise = GaussianNoise(std=[0.1, 0.5], fixed=False)
+        randnoise = transforms.RandomApply([noise], p=0.4)
 
-        mask = RandomMask(percent_missing=[0.5, 0.95], fixed = False)
-        randmask = transforms.RandomApply([mask], p=0.3)
+        mask = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
+        randmask = transforms.RandomApply([mask], p=0.1)
 
         self.transform = transforms.Compose([
             randcrop,
@@ -454,16 +454,16 @@ class ImageNetDistortValMulti:
             )
 
         jitter = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
-        randjitter = transforms.RandomApply([jitter], p=0.8)
+        randjitter = transforms.RandomApply([jitter], p=0.5)
 
-        blur = transforms.GaussianBlur(kernel_size=23)
-        randblur = transforms.RandomApply([blur], p=0.1)
+        blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
+        randblur = transforms.RandomApply([blur], p=0.4)
 
-        noise = GaussianNoise(std=[0.1, 0.3], fixed=False)
-        randnoise = transforms.RandomApply([noise], p=0.2)
+        noise = GaussianNoise(std=[0.1, 0.5], fixed=False)
+        randnoise = transforms.RandomApply([noise], p=0.4)
 
-        mask = RandomMask(percent_missing=[0.5, 0.95], fixed = False)
-        randmask = transforms.RandomApply([mask], p=0.3)
+        mask = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
+        randmask = transforms.RandomApply([mask], p=0.1)
 
         self.transform = transforms.Compose([
             transforms.Resize(256),
@@ -507,16 +507,16 @@ class ImageNetDistortTrainMultiContrastive:
         randflip = transforms.RandomHorizontalFlip()
 
         jitter = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
-        randjitter = transforms.RandomApply([jitter], p=0.8)
+        randjitter = transforms.RandomApply([jitter], p=0.5)
 
-        blur = transforms.GaussianBlur(kernel_size=23)
-        randblur = transforms.RandomApply([blur], p=0.1)
+        blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
+        randblur = transforms.RandomApply([blur], p=0.4)
 
-        noise = GaussianNoise(std=[0.1, 0.3], fixed=False)
-        randnoise = transforms.RandomApply([noise], p=0.2)
+        noise = GaussianNoise(std=[0.1, 0.5], fixed=False)
+        randnoise = transforms.RandomApply([noise], p=0.4)
 
-        mask = RandomMask(percent_missing=[0.5, 0.95], fixed = False)
-        randmask = transforms.RandomApply([mask], p=0.3)
+        mask = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
+        randmask = transforms.RandomApply([mask], p=0.1)
 
         self.transform_common = transforms.Compose([
             randcrop,
@@ -572,16 +572,16 @@ class ImageNetDistortValMultiContrastive:
         randflip = transforms.RandomHorizontalFlip()
 
         jitter = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
-        randjitter = transforms.RandomApply([jitter], p=0.8)
+        randjitter = transforms.RandomApply([jitter], p=0.5)
 
-        blur = transforms.GaussianBlur(kernel_size=23)
-        randblur = transforms.RandomApply([blur], p=0.1)
+        blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
+        randblur = transforms.RandomApply([blur], p=0.4)
 
-        noise = GaussianNoise(std=[0.1, 0.3], fixed=False)
-        randnoise = transforms.RandomApply([noise], p=0.2)
+        noise = GaussianNoise(std=[0.1, 0.5], fixed=False)
+        randnoise = transforms.RandomApply([noise], p=0.4)
 
-        mask = RandomMask(percent_missing=[0.5, 0.95], fixed = False)
-        randmask = transforms.RandomApply([mask], p=0.3)
+        mask = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
+        randmask = transforms.RandomApply([mask], p=0.1)
 
         self.transform_common = transforms.Compose([
             transforms.Resize(256),

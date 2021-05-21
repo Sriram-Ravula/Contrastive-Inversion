@@ -3,7 +3,7 @@ seed: 1234
 experiment_name: "birds"
 
 num_nodes: 1
-gpus: 1
+gpus: 4
 
 encoder: "clip"
 baseclip_type: "RN101"
@@ -21,15 +21,15 @@ num_classes: 2
 dataset_dir: "/tmp"
 logdir: "/tmp"
 
-batch_size: 64
+batch_size: 256
 
 workers: 12
 
 distributed_backend: "dp"
 
 #training
-max_epochs: 1
-log_save_interval: 1 #set this to be equal to num_epochs if row_log_interval is 1
+max_epochs: 200
+log_save_interval: 200 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 sync_bn: True
 

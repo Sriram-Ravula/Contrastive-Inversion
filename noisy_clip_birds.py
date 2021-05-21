@@ -120,13 +120,14 @@ class NoisyCLIPBirds(LightningModule):
         self.hparams = args
         self.world_size = self.hparams.num_nodes * self.hparams.gpus
 
-        self.clean_bg_transform = BGMask()
-
         #(2) set up the teacher CLIP network - freeze it and don't use gradients!
         self.logit_scale = self.hparams.logit_scale
         self.baseclip = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0]
         self.baseclip.eval()
         self.baseclip.requires_grad_(False)
+        self.clear_bg = BGMask()
+        self.clear_bg.eval()
+        self.clear_bg.requires_grad_(False)
 
         #(3) set up the student CLIP network - unfreeze it and use gradients!
         self.noisy_visual_encoder = clip.load(self.hparams.baseclip_type, self.hparams.device, jit=False)[0].visual
@@ -235,9 +236,9 @@ class NoisyCLIPBirds(LightningModule):
             embed_clean: T(xi) where T() is the teacher and xi are clean images. Shape [N, embed_dim]
             embed_noisy: S(yi) where S() is the student and yi are noisy images. Shape [N, embed_dim]
         """
-        self.clean_bg_transform = self.clean_bg_transform.to(self.device).eval()
+        #clear_bg = BGMask().to(self.device).eval()
         image_orig, labels = train_batch
-        image_no_bg = self.clean_bg_transform(image_orig)
+        image_no_bg = self.clear_bg(image_orig)
         embed_clean = self.baseclip.encode_image(image_no_bg)
         embed_noisy = self.encode_noisy_image(image_orig)
         return {'embed_clean': embed_clean, 'embed_noisy': embed_noisy}
@@ -257,7 +258,7 @@ def run_noisy_clip():
 
     seed_everything(args.seed)
 
-    dataset = wb.BirdModule(root_dir=args.dataset_dir, groups=[0,3], batch_size=args.batch_size)
+    dataset = wb.BirdModule(root_dir=args.dataset_dir, groups=[0,1,2,3], batch_size=args.batch_size)
     dataset.setup()
     model = NoisyCLIPBirds(args)
 

@@ -44,9 +44,7 @@ class LinearProbeBirds(LightningModule):
         self.criterion = nn.CrossEntropyLoss()
 
         self.val_top_1 = Accuracy(top_k=1)
-        self.val_top_5 = Accuracy(top_k=5)
         self.test_top_1 = Accuracy(top_k=1)
-        self.test_top_5 = Accuracy(top_k=5)
 
 
     def forward(self, x):
@@ -102,13 +100,10 @@ class LinearProbeBirds(LightningModule):
         pred_probs = logits.softmax(dim=-1)
 
         self.log("val_top_1", self.val_top_1(pred_probs, y), prog_bar=False, logger=False)
-        self.log("val_top_5", self.val_top_5(pred_probs, y), prog_bar=False, logger=False)
 
     def validation_epoch_end(self, outputs):
         self.log("val_top_1", self.val_top_1.compute(), prog_bar=True, logger=True)
-        self.log("val_top_5", self.val_top_5.compute(), prog_bar=True, logger=True)
         self.val_top_1.reset()
-        self.val_top_5.reset()
 
     def test_step(self, batch, batch_idx):
         x, y = batch
@@ -117,13 +112,10 @@ class LinearProbeBirds(LightningModule):
         pred_probs = logits.softmax(dim=-1)
 
         self.log("test_top_1", self.test_top_1(pred_probs, y), prog_bar=False, logger=False)
-        self.log("test_top_5", self.test_top_5(pred_probs, y), prog_bar=False, logger=False)
 
     def test_epoch_end(self, outputs):
         self.log("test_top_1", self.test_top_1.compute(), prog_bar=True, logger=True)
-        self.log("test_top_5", self.test_top_5.compute(), prog_bar=True, logger=True)
         self.test_top_1.reset()
-        self.test_top_5.reset()
 
     def predict(self, batch, batch_idx, hiddens):
         x, y = batch
@@ -160,13 +152,13 @@ def linear_eval():
     )
     trainer = Trainer.from_argparse_args(args, logger=logger)
 
-    train_dataset = BirdModule(root_dir=args.dataset_dir, groups=[0,3], batch_size=args.batch_size)
-    test_dataset_1 = BirdModule(root_dir=args.dataset_dir, groups=1, batch_size=args.batch_size)
-    test_dataset_2 = BirdModule(root_dir=args.dataset_dir, groups=1, batch_size=args.batch_size)
+    train_dataset = wb.BirdModule(root_dir=args.dataset_dir, groups=[0,1,2,3], batch_size=args.batch_size)
+    test_dataset_1 = wb.BirdModule(root_dir=args.dataset_dir, groups=1, batch_size=args.batch_size)
+    test_dataset_2 = wb.BirdModule(root_dir=args.dataset_dir, groups=2, batch_size=args.batch_size)
 
     trainer.fit(model, datamodule=train_dataset)
-    trainet.test(model, datamodule=test_dataset_1)
-    trainet.test(model, datamodule=test_dataset_2)
+    trainer.test(model, datamodule=test_dataset_1)
+    trainer.test(model, datamodule=test_dataset_2)
 
 if __name__ == "__main__":
     linear_eval()
