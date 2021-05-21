@@ -188,6 +188,143 @@ class GeneralBaseTransformVal:
     def __call__(self, x):
         return self.transform(x)
 
+class GeneralDistortTrain:
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
+
+        if args.distortion == "squaremask":
+            distortion = SquareMask(length=args.length, offset=args.offset, fixed = args.fixed_mask)
+        elif args.distortion == "randommask":
+            distortion = RandomMask(percent_missing=convnoise(args.percent_missing, epoch), fixed = args.fixed_mask)
+        elif args.distortion == "gaussiannoise":
+            distortion = GaussianNoise(std=convnoise(args.std, epoch), fixed=args.fixed_mask)
+        elif args.distortion == "gaussianblur":
+            distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
+
+        self.transform = transforms.Compose([
+            transforms.Resize(224),
+            transforms.CenterCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            distortion,
+            normalize
+        ])
+
+    def __call__(self, x):
+        return self.transform(x)
+
+class GeneralDistortVal:
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
+
+        if args.distortion == "squaremask":
+            distortion = SquareMask(length=args.length, offset=args.offset, fixed = args.fixed_mask)
+        elif args.distortion == "randommask":
+            distortion = RandomMask(percent_missing=convnoise(args.percent_missing, epoch), fixed = args.fixed_mask)
+        elif args.distortion == "gaussiannoise":
+            distortion = GaussianNoise(std=convnoise(args.std, epoch), fixed=args.fixed_mask)
+        elif args.distortion == "gaussianblur":
+            distortion = transforms.GaussianBlur(kernel_size=args.kernel_size, sigma=args.sigma)
+
+        self.transform = transforms.Compose([
+            transforms.Resize(224),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            distortion,
+            normalize
+        ])
+
+    def __call__(self, x):
+        return self.transform(x)
+
+class GeneralDistortTrainMulti:
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
+
+        jitter = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
+        randjitter = transforms.RandomApply([jitter], p=0.5)
+
+        blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
+        randblur = transforms.RandomApply([blur], p=0.4)
+
+        noise = GaussianNoise(std=[0.1, 0.5], fixed=False)
+        randnoise = transforms.RandomApply([noise], p=0.4)
+
+        mask = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
+        randmask = transforms.RandomApply([mask], p=0.1)
+
+        self.transform = transforms.Compose([
+            transforms.Resize(224),
+            transforms.CenterCrop(224),
+            randjitter,
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            randblur,
+            randnoise,
+            randmask,
+            normalize
+        ])
+
+    def __call__(self, x):
+        return self.transform(x)
+
+class GeneralDistortValMulti:
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
+
+        jitter = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
+        randjitter = transforms.RandomApply([jitter], p=0.5)
+
+        blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
+        randblur = transforms.RandomApply([blur], p=0.4)
+
+        noise = GaussianNoise(std=[0.1, 0.5], fixed=False)
+        randnoise = transforms.RandomApply([noise], p=0.4)
+
+        mask = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
+        randmask = transforms.RandomApply([mask], p=0.1)
+
+        self.transform = transforms.Compose([
+            transforms.Resize(224),
+            transforms.CenterCrop(224),
+            randjitter,
+            transforms.ToTensor(),
+            randblur,
+            randnoise,
+            randmask,
+            normalize
+        ])
+
+    def __call__(self, x):
+        return self.transform(x)
 
 class ImageNetBaseTransform:
     """
