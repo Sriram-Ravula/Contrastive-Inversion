@@ -8,6 +8,7 @@ from clip_files import model, clip
 
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 import torchvision
 from torchvision.datasets import CIFAR10, CIFAR100, STL10
 import torchvision.models as models
@@ -20,7 +21,12 @@ from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.metrics import Accuracy
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-class TransferLearning(LightningDataModule):
+from noisy_clip_dataparallel import NoisyCLIP
+from baselines import Baseline
+from contrastive_baseline import NoisyContrastiveBaseline
+from kd_baseline import KDBaseline
+
+class TransferLearning(LightningModule):
     def __init__(self, args):
         super(TransferLearning, self).__init__()
 
@@ -80,7 +86,7 @@ class TransferLearning(LightningDataModule):
             elif self.hparams.encoder == "resnet":
                 noisy_embeddings = self.backbone(x)
 
-        return self.output(noisy_embeddings)
+        return self.output(noisy_embeddings.flatten(1))
     
     def configure_optimizers(self):
         if not hasattr(self.hparams, 'weight_decay'):
@@ -129,7 +135,7 @@ class TransferLearning(LightningDataModule):
         
 
     def train_dataloader(self):
-        train_dataset = _grab_dataset(split='train')
+        train_dataset = self._grab_dataset(split='train')
 
         N_train = len(train_dataset)
         if self.hparams.use_subset:
@@ -141,7 +147,7 @@ class TransferLearning(LightningDataModule):
         return train_dataloader
     
     def val_dataloader(self):
-        val_dataset = _grab_dataset(split='val')
+        val_dataset = self._grab_dataset(split='val')
 
         N_val = len(val_dataset)
 
@@ -151,7 +157,7 @@ class TransferLearning(LightningDataModule):
         return val_dataloader
     
     def test_dataloader(self):
-        test_dataset = _grab_dataset(split='test')
+        test_dataset = self._grab_dataset(split='test')
 
         N_test = len(test_dataset)
 
