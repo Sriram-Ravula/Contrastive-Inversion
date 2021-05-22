@@ -388,7 +388,7 @@ def run_noisy_clip():
 
     dataset = ImageNetCLIPDataset(args)
     dataset.setup()
-    model = NoisyCLIP.load_from_checkpoint('./Logs_HighProbMulti/Noisy_RN101_multi/checkpoints/epoch=99-step=49499.ckpt')
+    model = NoisyCLIP(args)
 
     logger = TensorBoardLogger(
         save_dir=args.logdir,

@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "randmany_st"
+experiment_name: "randmany_mse"
 
 num_nodes: 1
 gpus: 4
@@ -8,7 +8,7 @@ gpus: 4
 encoder: "clip"
 baseclip_type: "RN101"
 device: "cpu"
-loss_type: "simclr_st"
+loss_type: "mse"
 
 distortion: "randommask"
 fixed_mask: False

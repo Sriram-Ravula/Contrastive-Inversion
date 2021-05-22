@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "Noisy_RN101_randmany"
+experiment_name: "randmany_both"
 
 num_nodes: 1
 gpus: 4

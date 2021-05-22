@@ -252,7 +252,7 @@ def transfer_learning():
     if not os.path.exists(os.path.join(args.results_dir, args.experiment_name)):
         os.mkdir(os.path.join(args.results_dir, args.experiment_name))
 
-    with open(os.path.join(args.results_dir, args.experiment_name, 'test_acc.out', 'w+') as f:
+    with open(os.path.join(args.results_dir, args.experiment_name, 'test_acc.out'), 'w+') as f:
         f.write('Top 1\t{0:.4f}\n'.format(top1_accs))
         f.write('Top 5\t{0:.4f}\n'.format(top5_accs))
 
