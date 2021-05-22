@@ -17,7 +17,7 @@ distributed_backend: "ddp"
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
 experiment_name: "contrastive_noisemany_alldata_cifar100"
-checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/noisemany/checkpoints/epoch=24-step=12374.ckpt"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/Noisy_RN101_noisemany/checkpoints/epoch=24-step=12374.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "gaussiannoise" #randommask or squaremask

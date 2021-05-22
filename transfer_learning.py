@@ -109,7 +109,7 @@ class TransferLearning(LightningModule):
                 train = False
                 transform = self.val_set_transform
 
-            dataset = CIFAR10(root=self.hparams.dataset_dir, train=train, transform=transform)
+            dataset = CIFAR10(root=self.hparams.dataset_dir, train=train, transform=transform, download=True)
 
         elif self.hparams.dataset == "CIFAR100":
             if split == 'train':
@@ -119,7 +119,7 @@ class TransferLearning(LightningModule):
                 train = False
                 transform = self.val_set_transform
 
-            dataset = CIFAR100(root=self.hparams.dataset_dir, train=train, transform=transform)
+            dataset = CIFAR100(root=self.hparams.dataset_dir, train=train, transform=transform, download=True)
 
         elif self.hparams.dataset == 'STL10':
             if split == 'train':
@@ -129,7 +129,7 @@ class TransferLearning(LightningModule):
                 stlsplit = 'test'
                 transform = self.val_set_transform
 
-            dataset = STL10(root=self.hparams.dataset_dir, split=stlsplit, transform = transform)
+            dataset = STL10(root=self.hparams.dataset_dir, split=stlsplit, transform = transform, download=True)
 
         return dataset
 

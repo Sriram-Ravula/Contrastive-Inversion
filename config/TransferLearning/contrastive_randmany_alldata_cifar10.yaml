@@ -17,11 +17,11 @@ distributed_backend: "ddp"
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
 experiment_name: "contrastive_randmany_alldata_cifar10"
-checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/randmany/checkpoints/epoch=24-step=12374.ckpt"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/Noisy_RN101_randmany/checkpoints/epoch=24-step=12374.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "randommask" #randommask or squaremask
-std: [0.5,0.95] #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
+percent_missing: [0.5,0.95] #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
 fixed_mask: False
 
 encoder: "clip"
