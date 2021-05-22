@@ -193,7 +193,7 @@ class NoisyCLIP(LightningModule):
             #Grab the two off-diagonal similarities
             part1 = torch.sum(torch.diag(logmat, diagonal=1)[np.arange(0,2*bsz,2)])
             part2 = torch.sum(torch.diag(logmat, diagonal=-1)[np.arange(0,2*bsz,2)])
-           
+
             #Take the mean of the two off-diagonals
             loss = (part1 + part2)/2
 
@@ -214,6 +214,31 @@ class NoisyCLIP(LightningModule):
         #Take the simple MSE between the clean and noisy embeddings
         elif self.hparams.loss_type == 'mse':
             return F.mse_loss(input2, input1)
+
+        elif self.hparams.loss_type.startswith('simclr_'):
+            assert self.hparams.loss_type in ['simclr_ss', 'simclr_st', 'simclr_both']
+            # Various schemes for the negative examples
+            teacher_embeds = F.normalize(input1, dim=1)
+            student_embeds = F.normalize(input2, dim=1)
+            # First compute positive examples by taking <S(x_i), T(x_i)>/T for all i
+            pos_term = (teacher_embeds * student_embeds).sum(dim=1) / self.hparams.tau
+            # Then generate the negative term by constructing various similarity matrices
+            if self.hparams.loss_type == 'simclr_ss':
+                cov = torch.mm(student_embeds, student_embeds.t())
+                sim = torch.exp(cov / self.hparams.tau) # shape is [bsz, bsz]
+                neg_term = torch.log(sim.sum(dim=1) - sim.diag())
+            elif self.hparams.loss_type == 'simclr_st':
+                cov = torch.mm(student_embeds, teacher_embeds.t())
+                sim = torch.exp(cov / self.hparams.tau) # shape is [bsz, bsz]
+                neg_term = torch.log(sim.sum(dim=1)) # Not removing the diagonal here!
+            else:
+                cat_embeds = torch.cat([student_embeds, teacher_embeds])
+                cov = torch.mm(student_embeds, cat_embeds.t())
+                sim = torch.exp(cov / self.hparams.tau) # shape is [bsz, 2 * bsz]
+                # and take row-wise sums w/o diagonals and
+                neg_term = torch.log(sim.sum(dim=1) - sim.diag())
+            # Final loss is
+            loss = -1 * (pos_term - neg_term).sum() # (summed and then mean-reduced later)
 
         else:
             raise ValueError('Loss function not understood.')
