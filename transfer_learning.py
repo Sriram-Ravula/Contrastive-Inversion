@@ -42,7 +42,7 @@ class TransferLearning(LightningModule):
             self.val_set_transform = GeneralDistortValMulti(self.hparams)
         else:
             self.train_set_transform = GeneralDistortTrain(self.hparams)
-            self.val_set_transform = GeneralDistortVal(self.hparams)        
+            self.val_set_transform = GeneralDistortVal(self.hparams)
 
         #Grab the correct model - only want the embeddings from the final layer!
         if args.saved_model_type == 'contrastive':
@@ -57,7 +57,7 @@ class TransferLearning(LightningModule):
         elif args.saved_model_type == 'kd':
             saved_model = KDBaseline.load_from_checkpoint(self.hparams.checkpoint_path)
             self.backbone = saved_model.student.feature_extractor
-        
+
         for param in self.backbone.parameters():
             param.requires_grad = False
 
@@ -76,7 +76,7 @@ class TransferLearning(LightningModule):
 
         self.test_top_1 = Accuracy(top_k=1)
         self.test_top_5 = Accuracy(top_k=5)
-    
+
     def forward(self, x):
         #Grab the noisy image embeddings
         self.backbone.eval()
@@ -87,7 +87,7 @@ class TransferLearning(LightningModule):
                 noisy_embeddings = self.backbone(x)
 
         return self.output(noisy_embeddings.flatten(1))
-    
+
     def configure_optimizers(self):
         if not hasattr(self.hparams, 'weight_decay'):
             self.hparams.weight_decay = 0
@@ -99,7 +99,7 @@ class TransferLearning(LightningModule):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=num_steps)
 
         return [opt], [scheduler]
-    
+
     def _grab_dataset(self, split):
         if self.hparams.dataset == "CIFAR10":
             if split == 'train':
@@ -108,9 +108,9 @@ class TransferLearning(LightningModule):
             else:
                 train = False
                 transform = self.val_set_transform
-            
+
             dataset = CIFAR10(root=self.hparams.dataset_dir, train=train, transform=transform)
-        
+
         elif self.hparams.dataset == "CIFAR100":
             if split == 'train':
                 train = True
@@ -118,9 +118,9 @@ class TransferLearning(LightningModule):
             else:
                 train = False
                 transform = self.val_set_transform
-            
+
             dataset = CIFAR100(root=self.hparams.dataset_dir, train=train, transform=transform)
-        
+
         elif self.hparams.dataset == 'STL10':
             if split == 'train':
                 stlsplit = 'train'
@@ -128,11 +128,11 @@ class TransferLearning(LightningModule):
             else:
                 stlsplit = 'test'
                 transform = self.val_set_transform
-            
+
             dataset = STL10(root=self.hparams.dataset_dir, split=stlsplit, transform = transform)
 
         return dataset
-        
+
 
     def train_dataloader(self):
         train_dataset = self._grab_dataset(split='train')
@@ -145,7 +145,7 @@ class TransferLearning(LightningModule):
                                         pin_memory=True, shuffle=True)
 
         return train_dataloader
-    
+
     def val_dataloader(self):
         val_dataset = self._grab_dataset(split='val')
 
@@ -155,7 +155,7 @@ class TransferLearning(LightningModule):
                                         pin_memory=True, shuffle=False)
 
         return val_dataloader
-    
+
     def test_dataloader(self):
         test_dataset = self._grab_dataset(split='test')
 
@@ -244,6 +244,17 @@ def transfer_learning():
     trainer = Trainer.from_argparse_args(args, logger=logger)
 
     trainer.fit(model)
+    results = trainer.test(model)
+
+    top1_acc = results['test_top_1']
+    top5_acc = results['test_top_5']
+
+    if not os.path.exists(os.path.join(args.results_dir, args.experiment_name)):
+        os.mkdir(os.path.join(args.results_dir, args.experiment_name))
+
+    with open(os.path.join(args.results_dir, args.experiment_name, 'test_acc.out', 'w+') as f:
+        f.write('Top 1\t{0:.4f}\n'.format(top1_accs))
+        f.write('Top 5\t{0:.4f}\n'.format(top5_accs))
 
 if __name__ == '__main__':
     transfer_learning()
