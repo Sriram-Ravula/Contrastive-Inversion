@@ -66,7 +66,7 @@ class TransferLearning(LightningModule):
 
         #Set up the criterion and stuff
         #(3) Set up our criterion - here we use reduction as "sum" so that we are able to average over all validation sets
-        self.criterion = nn.CrossEntropyLoss(reduction = "sum")
+        self.criterion = nn.CrossEntropyLoss()
 
         self.train_top_1 = Accuracy(top_k=1)
         self.train_top_5 = Accuracy(top_k=5)
@@ -253,8 +253,8 @@ def transfer_learning():
         os.mkdir(os.path.join(args.results_dir, args.experiment_name))
 
     with open(os.path.join(args.results_dir, args.experiment_name, 'test_acc.out'), 'w+') as f:
-        f.write('Top 1\t{0:.4f}\n'.format(top1_accs))
-        f.write('Top 5\t{0:.4f}\n'.format(top5_accs))
+        f.write('Top 1\t{0:.4f}\n'.format(top1_acc))
+        f.write('Top 5\t{0:.4f}\n'.format(top5_acc))
 
 if __name__ == '__main__':
     transfer_learning()
