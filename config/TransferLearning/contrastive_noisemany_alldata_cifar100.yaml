@@ -4,7 +4,7 @@ seed: 1234
 #data - SAME BETWEEN RUNS
 dataset_dir: "/tmp/CIFAR100/"
 dataset: "CIFAR100"
-num_classes: 10
+num_classes: 100
 emb_dim: 512
 
 #distributed training - SAME BETWEEN RUNS

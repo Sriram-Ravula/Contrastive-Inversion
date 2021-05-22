@@ -246,8 +246,8 @@ def transfer_learning():
     trainer.fit(model)
     results = trainer.test(model)
 
-    top1_acc = results['test_top_1']
-    top5_acc = results['test_top_5']
+    top1_acc = results[0]['test_top_1']
+    top5_acc = results[0]['test_top_5']
 
     if not os.path.exists(os.path.join(args.results_dir, args.experiment_name)):
         os.mkdir(os.path.join(args.results_dir, args.experiment_name))
