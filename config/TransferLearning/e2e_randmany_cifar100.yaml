@@ -31,7 +31,7 @@ saved_model_type: 'baseline'
 #training
 max_epochs: 10
 lr: 0.001
-batch_size: 512 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,
+batch_size: 128 #100 for clip RN50, 150 for clip Vit, 64 for clip RN101,
 use_subset: False
 
 #logging

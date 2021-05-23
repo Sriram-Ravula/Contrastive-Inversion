@@ -788,6 +788,70 @@ class ImageNetDistortValMultiContrastive:
 
         return x_clean, x_noisy
 
+class ImageNetDistortTrainMultiContrastiveDecoupled:
+    """
+    Applies a distortive transform to one copy of an image and a simple random crop and flip to another copy.
+
+    Random distortions on the distorted copy are:
+    Random Crop to 224x224, Random horizontal clip p=0.5,
+    Random color jitter p=0.8 (max adjustment for: brightness=0.4, contrast=0.4, saturation=0.2, hue=0.1),
+    Random Gaussian Blur p=0.1 (kernel 23x23, std unformly random in [0.1, 0.2]),
+    Random Gaussian Noise p=0.2 (std uniformly random in [0.1, 0.3]),
+    Random Pixel Mask p=0.3 (percentage masked uniformly random in [0.5, 0.95]).
+
+    Returns a pair of images (clean, distorted)
+    """
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
+
+        randcrop = transforms.RandomResizedCrop(224)
+
+        randflip = transforms.RandomHorizontalFlip()
+
+        jitter = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
+        randjitter = transforms.RandomApply([jitter], p=0.5)
+
+        blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
+        randblur = transforms.RandomApply([blur], p=0.4)
+
+        noise = GaussianNoise(std=[0.1, 0.5], fixed=False)
+        randnoise = transforms.RandomApply([noise], p=0.4)
+
+        mask = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
+        randmask = transforms.RandomApply([mask], p=0.1)
+
+        self.transform_common = transforms.Compose([
+            randcrop,
+            randflip
+        ])
+
+        self.transform_clean = transforms.Compose([
+            transforms.ToTensor(),
+            normalize
+        ])
+
+        self.transform_distort = transforms.Compose([
+            randjitter,
+            transforms.ToTensor(),
+            randblur,
+            randnoise,
+            randmask,
+            normalize
+        ])
+
+    def __call__(self, x):
+        x_clean = self.transform_clean(self.transform_common(x))
+        x_noisy = self.transform_distort(self.transform_common(x))
+
+        return x_clean, x_noisy
+
 class ImageNet100(ImageFolder):
     """
     Dataset for ImageNet100. Majority of code taken from torchvision.datasets.ImageNet.

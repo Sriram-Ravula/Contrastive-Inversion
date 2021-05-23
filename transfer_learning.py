@@ -66,7 +66,7 @@ class TransferLearning(LightningModule):
 
         #Set up the criterion and stuff
         #(3) Set up our criterion - here we use reduction as "sum" so that we are able to average over all validation sets
-        self.criterion = nn.CrossEntropyLoss(reduction = "sum")
+        self.criterion = nn.CrossEntropyLoss(reduction = "mean")
 
         self.train_top_1 = Accuracy(top_k=1)
         self.train_top_5 = Accuracy(top_k=5)
@@ -130,6 +130,18 @@ class TransferLearning(LightningModule):
                 transform = self.val_set_transform
             
             dataset = STL10(root=self.hparams.dataset_dir, split=stlsplit, transform = transform)
+
+        elif self.hparams.dataset == 'COVID':
+            if split == 'train':
+                covidsplit = 'train'
+                transform = self.train_set_transform
+            else:
+                covidsplit = 'test'
+                transform = self.val_set_transform
+            
+            dataset = torchvision.datasets.ImageFolder(root = self.hparams.dataset_dir + covidsplit, transform=transform)
+        
+        
 
         return dataset
         
