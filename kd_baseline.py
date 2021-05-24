@@ -89,13 +89,13 @@ class KDBaseline(LightningModule):
 
         #(2) set up the teacher RN network - freeze it and don't use gradients!
         #Grab the correct Resnet model
-        teacher = Baseline.load_from_checkpoint(args.checkpoint_path)
+        teacher = Baseline.load_from_checkpoint(self.hparams.checkpoint_path)
         self.teacher = teacher.encoder
         self.teacher.eval()
         self.teacher.requires_grad_(False)
 
         #(3) set up the student CLIP network - unfreeze it and use gradients!
-        student = Baseline.load_from_checkpoint(args.checkpoint_path)
+        student = Baseline.load_from_checkpoint(self.hparams.checkpoint_path)
         self.student = student.encoder
         self.student.args.freeze_backbone = False
         for param in self.student.parameters():

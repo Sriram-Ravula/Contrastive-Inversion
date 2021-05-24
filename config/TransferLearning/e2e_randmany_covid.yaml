@@ -16,7 +16,7 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "BASELINE_COVID_TRANSFER_NOISEMANY"
+experiment_name: "BASELINE_COVID_TRANSFER_RANDMANY"
 checkpoint_path: "/work2/04703/sravula/maverick2/Logs/Contrastive-Inversion/RN101_RANDMANY_NONFIXED_RESET_NOTRAIN/checkpoints/epoch=24-step=12374.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS

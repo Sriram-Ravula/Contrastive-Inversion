@@ -64,16 +64,16 @@ class TransferLearning(LightningModule):
         self.train_set_transform, self.val_set_transform = grab_transforms(self.hparams)    
 
         #Grab the correct model - only want the embeddings from the final layer!
-        if args.saved_model_type == 'contrastive':
+        if self.hparams.saved_model_type == 'contrastive':
             saved_model = NoisyCLIP.load_from_checkpoint(self.hparams.checkpoint_path)
             self.backbone = saved_model.noisy_visual_encoder
-        elif args.saved_model_type == 'contrastive_baseline':
+        elif self.hparams.saved_model_type == 'contrastive_baseline':
             saved_model = NoisyContrastiveBaseline.load_from_checkpoint(self.hparams.checkpoint_path)
             self.backbone = saved_model.student
-        elif args.saved_model_type == 'baseline':
+        elif self.hparams.saved_model_type == 'baseline':
             saved_model = Baseline.load_from_checkpoint(self.hparams.checkpoint_path)
             self.backbone = saved_model.encoder.feature_extractor
-        elif args.saved_model_type == 'kd':
+        elif self.hparams.saved_model_type == 'kd':
             saved_model = KDBaseline.load_from_checkpoint(self.hparams.checkpoint_path)
             self.backbone = saved_model.student.feature_extractor
         
@@ -315,9 +315,9 @@ def transfer_learning():
     model = TransferLearning(args)
 
     logger = TensorBoardLogger(
-        save_dir=args.logdir,
+        save_dir= args.logdir,
         version=args.experiment_name,
-        name='Contrastive_Inversion'
+        name='Contrastive-Inversion'
     )
     trainer = Trainer.from_argparse_args(args, logger=logger)
 
