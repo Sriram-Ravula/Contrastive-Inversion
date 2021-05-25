@@ -1,0 +1,39 @@
+#seed - SAME BETWEEN RUNS
+
+#data - SAME BETWEEN RUNS
+dataset_dir: "/tmp/ImageNet100"
+dataset: "ImageNet100"
+num_classes: 100
+emb_dim: 512
+
+#distributed training - SAME BETWEEN RUNS
+num_nodes: 1
+gpus: 4
+workers: 12
+#distributed_backend: "ddp"
+
+###############################################
+
+#Experiment Stuff - CHANGE BETWEEN RUNS
+experiment_name: "RAND75"
+checkpoint_path: "/work2/04703/sravula/maverick2/Logs/Contrastive-Inversion/RN101_RAND75_NONFIXED_RESET_NOTRAIN/checkpoints/epoch=24-step=12374.ckpt"
+
+#Distortions and parameters - CHANGE BETWEEN RUNS
+distortion: "randommask" #randommask or squaremask
+#percent_missing: 0.75 #only for randommask -THIS IS A FLOAT, PUT IN E.G. 0.9 FOR () percent missing
+noise_levels: [0.75]
+fixed_mask: False
+saved_model_type: "baseline"
+num_tests: 10
+
+encoder: "resnet"
+
+#logging
+log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+row_log_interval: 1
+logdir: "/tmp/Logs"
+
+results_dir: '/tmp/results_IDID'
+
+#validation
+check_val_every_n_epoch: 1

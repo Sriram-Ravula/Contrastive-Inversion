@@ -405,6 +405,30 @@ class ImageNetBaseTrainContrastive:
 
         return x_clean, x_clean_copy
 
+class ImageNetBaseTrainContrastiveDecoupled:
+    def __init__(self, args):
+        if args.encoder == "clip":
+            normalize = transforms.Normalize(
+                mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+            )
+        else:
+            normalize = transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )
+
+        self.transform = transforms.Compose([
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize
+        ])
+
+    def __call__(self, x):
+        x_1 = self.transform(x)
+        x_2 = self.transform(x)
+
+        return x_1, x_2
+
 class ImageNetDistortTrainContrastive:
     """
     Torchvision composition of transforms to produce ImageNet images with a distortion.

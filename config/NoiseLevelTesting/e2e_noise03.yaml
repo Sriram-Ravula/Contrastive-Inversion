@@ -1,8 +1,8 @@
 #seed - SAME BETWEEN RUNS
 
 #data - SAME BETWEEN RUNS
-dataset_dir: "/tmp/ImageNet100C"
-dataset: "ImageNet100C"
+dataset_dir: "/tmp/ImageNet100"
+dataset: "ImageNet100"
 num_classes: 100
 emb_dim: 512
 
@@ -15,22 +15,25 @@ workers: 12
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "RN101_MULTI_100C"
-checkpoint_path: "/work2/04703/sravula/maverick2/Logs/Contrastive-Inversion/RN101_MULTI_2/checkpoints/epoch=24-step=12374.ckpt"
+experiment_name: "NOISE03"
+checkpoint_path: "/work2/04703/sravula/maverick2/Logs/Contrastive-Inversion/RN101_NOISE03_NONFIXED_RESET_NOTRAIN/checkpoints/epoch=24-step=12374.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
-distortion: "None"
-
+distortion: "gaussiannoise" #randommask or squaremask
+#std: 0.3
+noise_levels: [0.3]
+fixed_mask: False
 saved_model_type: "baseline"
+num_tests: 10
 
 encoder: "resnet"
 
 #logging
-log_save_interval: 1 #set this to be equal to num_epochs if row_log_interval is 1
+log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 logdir: "/tmp/Logs"
 
-results_dir: '/tmp/results_100c'
+results_dir: '/tmp/results_IDID'
 
 #validation
 check_val_every_n_epoch: 1

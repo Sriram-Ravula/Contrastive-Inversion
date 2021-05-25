@@ -59,7 +59,7 @@ def grab_config():
 
 def noise_level_eval():
     args = grab_config()
-    args.gpus = [2] # Force evaluation in a single gpu.
+    args.gpus = [3] # Force evaluation in a single gpu.
 
     seed_everything(42)
 
