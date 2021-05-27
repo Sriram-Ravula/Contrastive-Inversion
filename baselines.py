@@ -332,6 +332,7 @@ def run_baseline():
     seed_everything(args.seed)
 
     model = Baseline(args)
+    #model = Baseline.load_from_checkpoint(args.checkpoint_file)
 
     logger = TensorBoardLogger(
         save_dir= args.logdir,

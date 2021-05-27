@@ -85,7 +85,7 @@ def grab_config():
 
 def transfer_eval():
     args = grab_config()
-    args.gpus = [1]
+    args.gpus = [0]
 
     seed_everything(42)
 
@@ -95,6 +95,10 @@ def transfer_eval():
         name='NoisyCLIP_Logs'
     )
     trainer = Trainer.from_argparse_args(args, logger=logger, progress_bar_refresh_rate=0)
+
+    if not os.path.exists(args.results_dir):
+        os.mkdir(args.results_dir)
+
     if not os.path.exists(os.path.join(args.results_dir, args.experiment_name)):
         os.mkdir(os.path.join(args.results_dir, args.experiment_name))
 
