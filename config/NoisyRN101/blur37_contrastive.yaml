@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "Noisy_RN101_blur37_contrastive"
+experiment_name: "blur37_st"
 
 num_nodes: 1
 gpus: 4
@@ -8,7 +8,7 @@ gpus: 4
 encoder: "clip"
 baseclip_type: "RN101"
 device: "cpu"
-loss_type: "simclr"
+loss_type: "simclr_st"
 
 distortion: "gaussianblur"
 fixed_mask: True

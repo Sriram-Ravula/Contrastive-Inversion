@@ -178,11 +178,13 @@ class NoisyCLIP(LightningModule):
         # Use the simclr style InfoNCE
         if self.hparams.loss_type == 'simclr':
             # Create similarity matrix between embeddings.
-            full_tensor = torch.cat([input1.unsqueeze(1),input2.unsqueeze(1)], dim=1).view(2*bsz, 1, -1)
-            tensor1 = full_tensor.expand(2*bsz,2*bsz,-1)
-            tensor2 = full_tensor.permute(1,0,2).expand(2*bsz,2*bsz,-1)
-            sim_mat = torch.nn.CosineSimilarity(dim=-1)(tensor1,tensor2)
-
+            full_tensor = torch.cat([input1.unsqueeze(1),input2.unsqueeze(1)], dim=1).view(2*bsz, -1)
+            #tensor1 = full_tensor.expand(2*bsz,2*bsz,-1)
+            #tensor2 = full_tensor.permute(1,0,2).expand(2*bsz,2*bsz,-1)
+            #sim_mat = torch.nn.CosineSimilarity(dim=-1)(tensor1,tensor2)
+            full_tensor = full_tensor / full_tensor.norm(dim=-1, keepdim=True)
+            sim_mat = full_tensor @ full_tensor.t()
+            print(torch.sum(sim_mat < 0))
             # Calculate logits used for the contrastive loss.
             exp_sim_mat = torch.exp(sim_mat/self.hparams.loss_tau)
             mask = torch.ones_like(exp_sim_mat) - torch.eye(2*bsz).type_as(exp_sim_mat)
@@ -212,6 +214,31 @@ class NoisyCLIP(LightningModule):
         #Take the simple MSE between the clean and noisy embeddings
         elif self.hparams.loss_type == 'mse':
             return F.mse_loss(input2, input1)
+
+        elif self.hparams.loss_type.startswith('simclr_'):
+            assert self.hparams.loss_type in ['simclr_ss', 'simclr_st', 'simclr_both']
+            # Various schemes for the negative examples
+            teacher_embeds = F.normalize(input1, dim=1)
+            student_embeds = F.normalize(input2, dim=1)
+            # First compute positive examples by taking <S(x_i), T(x_i)>/T for all i
+            pos_term = (teacher_embeds * student_embeds).sum(dim=1) / self.hparams.loss_tau
+            # Then generate the negative term by constructing various similarity matrices
+            if self.hparams.loss_type == 'simclr_ss':
+                cov = torch.mm(student_embeds, student_embeds.t())
+                sim = torch.exp(cov / self.hparams.loss_tau) # shape is [bsz, bsz]
+                neg_term = torch.log(sim.sum(dim=1) - sim.diag())
+            elif self.hparams.loss_type == 'simclr_st':
+                cov = torch.mm(student_embeds, teacher_embeds.t())
+                sim = torch.exp(cov / self.hparams.loss_tau) # shape is [bsz, bsz]
+                neg_term = torch.log(sim.sum(dim=1)) # Not removing the diagonal here!
+            else:
+                cat_embeds = torch.cat([student_embeds, teacher_embeds])
+                cov = torch.mm(student_embeds, cat_embeds.t())
+                sim = torch.exp(cov / self.hparams.loss_tau) # shape is [bsz, 2 * bsz]
+                # and take row-wise sums w/o diagonals and
+                neg_term = torch.log(sim.sum(dim=1) - sim.diag())
+            # Final loss is
+            loss = -1 * (pos_term - neg_term).sum() # (summed and then mean-reduced later)
 
         else:
             raise ValueError('Loss function not understood.')
@@ -361,7 +388,7 @@ def run_noisy_clip():
 
     dataset = ImageNetCLIPDataset(args)
     dataset.setup()
-    model = NoisyCLIP.load_from_checkpoint('./Logs_RN101_Adam/Noisy_RN101_randmany/checkpoints/epoch=24-step=12374.ckpt')
+    model = NoisyCLIP.load_from_checkpoint('Logs_RN101_Adam/randmany_st/checkpoints/epoch=24-step=12374.ckpt')
 
     logger = TensorBoardLogger(
         save_dir=args.logdir,

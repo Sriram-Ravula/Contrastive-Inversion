@@ -41,6 +41,8 @@ class ImageNet100Test(LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, worker_init_fn=(lambda wid: np.random.seed(int(torch.rand(1)[0]*1e6) + wid)), pin_memory=True, shuffle=False)
+    def predict_dataloader(self):
+        return self.test_dataloader()
 
 
 def grab_config():
@@ -58,7 +60,7 @@ def grab_config():
 
 def noise_level_eval():
     args = grab_config()
-    args.gpus = [3] # Force evaluation in a single gpu.
+    args.gpus = [1] # Force evaluation in a single gpu.
 
     seed_everything(42)
 
@@ -67,10 +69,12 @@ def noise_level_eval():
         version=args.experiment_name,
         name='NoisyCLIP_Logs'
     )
-    trainer = Trainer.from_argparse_args(args, logger=logger, progress_bar_refresh_rate=0)
+    trainer = Trainer.from_argparse_args(args, logger=logger, progress_bar_refresh_rate=0, auto_select_gpus=True)
     if not os.path.exists(os.path.join(args.results_dir, args.experiment_name)):
         os.mkdir(os.path.join(args.results_dir, args.experiment_name))
 
+    if not isinstance(args.noise_levels, list):
+        args.noise_levels = [args.noise_levels]
 
     for noise_level in args.noise_levels:
         all_results = []

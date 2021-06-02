@@ -15,8 +15,8 @@ workers: 12
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "rand_nonfixed"
-checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Linear_Subset/multi_alldata/checkpoints/epoch=9-step=2479.ckpt"
+experiment_name: "multi_alldata_200epochs"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Linear_Subset/multi_alldata_200epochs/checkpoints/epoch=9-step=2479.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "None"  #randommask or squaremask

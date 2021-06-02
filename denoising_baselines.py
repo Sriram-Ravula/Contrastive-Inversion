@@ -69,7 +69,6 @@ class NLMeansDenoising:
             sigma_est = np.mean(estimate_sigma(img, multichannel=True))
         else:
             sigma_est = self.sigma_given
-        print('Sigma: ', sigma_est)
         img_denoised = denoise_nl_means(img, sigma=sigma_est, fast_mode=True, multichannel=True)
         return torch.Tensor(img_denoised).to(x.device).permute(2,0,1)
 

@@ -136,7 +136,7 @@ class NoisyCLIP(LightningModule):
             raise ValueError("Unsupported dataset selected.")
         elif not hasattr(self.hparams, 'increasing') or not self.hparams.increasing:
             if self.hparams.distortion == "None":
-                self.train_set_transform = ImageNetBaseTransformContrastive(self.hparams)
+                self.train_set_transform = ImageNetBaseTrainContrastive(self.hparams)
                 self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
             elif self.hparams.distortion == "multi":
                 self.train_set_transform = ImageNetDistortTrainMultiContrastive(self.hparams)
@@ -221,20 +221,20 @@ class NoisyCLIP(LightningModule):
             teacher_embeds = F.normalize(input1, dim=1)
             student_embeds = F.normalize(input2, dim=1)
             # First compute positive examples by taking <S(x_i), T(x_i)>/T for all i
-            pos_term = (teacher_embeds * student_embeds).sum(dim=1) / self.hparams.tau
+            pos_term = (teacher_embeds * student_embeds).sum(dim=1) / self.hparams.loss_tau
             # Then generate the negative term by constructing various similarity matrices
             if self.hparams.loss_type == 'simclr_ss':
                 cov = torch.mm(student_embeds, student_embeds.t())
-                sim = torch.exp(cov / self.hparams.tau) # shape is [bsz, bsz]
+                sim = torch.exp(cov / self.hparams.loss_tau) # shape is [bsz, bsz]
                 neg_term = torch.log(sim.sum(dim=1) - sim.diag())
             elif self.hparams.loss_type == 'simclr_st':
                 cov = torch.mm(student_embeds, teacher_embeds.t())
-                sim = torch.exp(cov / self.hparams.tau) # shape is [bsz, bsz]
+                sim = torch.exp(cov / self.hparams.loss_tau) # shape is [bsz, bsz]
                 neg_term = torch.log(sim.sum(dim=1)) # Not removing the diagonal here!
             else:
                 cat_embeds = torch.cat([student_embeds, teacher_embeds])
                 cov = torch.mm(student_embeds, cat_embeds.t())
-                sim = torch.exp(cov / self.hparams.tau) # shape is [bsz, 2 * bsz]
+                sim = torch.exp(cov / self.hparams.loss_tau) # shape is [bsz, 2 * bsz]
                 # and take row-wise sums w/o diagonals and
                 neg_term = torch.log(sim.sum(dim=1) - sim.diag())
             # Final loss is

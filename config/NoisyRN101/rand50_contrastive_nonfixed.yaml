@@ -1,6 +1,6 @@
 seed: 1234
 
-experiment_name: "Noisy_RN101_rand50_contrastive_nonfixed"
+experiment_name: "rand50_st"
 
 num_nodes: 1
 gpus: 4
@@ -8,7 +8,7 @@ gpus: 4
 encoder: "clip"
 baseclip_type: "RN101"
 device: "cpu"
-loss_type: "simclr"
+loss_type: "simclr_st"
 
 distortion: "randommask"
 fixed_mask: False

@@ -16,8 +16,8 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "noise05_nonfixed"
-checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/Noisy_RN101_noise05_contrastive_nonfixed/checkpoints/epoch=24-step=12374.ckpt"
+experiment_name: "noise05_st"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/noise05_st/checkpoints/epoch=24-step=12374.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "gaussiannoise" #randommask or squaremask
@@ -34,7 +34,7 @@ use_subset: True
 subset_ratio: 0.1
 
 #logging
-log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+log_save_interval: 10 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 logdir: "/tmp/Logs"
 

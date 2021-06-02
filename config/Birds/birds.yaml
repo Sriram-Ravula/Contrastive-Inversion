@@ -8,7 +8,7 @@ gpus: 4
 encoder: "clip"
 baseclip_type: "RN101"
 device: "cpu"
-loss_type: "simclr"
+loss_type: "simclr_st"
 
 lr: 0.0003
 weight_decay: 0.0001
@@ -28,8 +28,8 @@ workers: 12
 distributed_backend: "dp"
 
 #training
-max_epochs: 200
-log_save_interval: 200 #set this to be equal to num_epochs if row_log_interval is 1
+max_epochs: 50
+log_save_interval: 50 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 sync_bn: True
 

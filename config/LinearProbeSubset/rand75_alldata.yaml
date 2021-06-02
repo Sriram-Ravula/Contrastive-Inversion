@@ -16,8 +16,8 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "rand75_alldata"
-checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/Noisy_RN101_rand75_contrastive_nonfixed/checkpoints/epoch=24-step=12374.ckpt"
+experiment_name: "rand75_st_alldata"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/rand75_st/checkpoints/epoch=24-step=12374.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "randommask" #randommask or squaremask
