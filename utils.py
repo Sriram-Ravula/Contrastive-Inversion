@@ -25,12 +25,13 @@ class RandomMask(object):
         fixed: whether the mask is fixed for all images
     """
 
-    def __init__(self, percent_missing, fixed=False):
+    def __init__(self, percent_missing, fixed=False, return_mask=False):
         assert isinstance(percent_missing, float) or isinstance(percent_missing, list)
 
         self.percent_missing = percent_missing
         self.fixed = fixed
         self.mask = None
+        self.return_mask = return_mask
 
     def __call__(self, image):
         h, w = image.shape[-2:]
@@ -48,6 +49,9 @@ class RandomMask(object):
         if self.fixed:
             self.mask = mask
 
+        if self.return_mask:
+            return image*mask.view(h, w), mask
+             
         return image*mask.view(h, w)
 
 class SquareMask(object):

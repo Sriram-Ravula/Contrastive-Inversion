@@ -16,14 +16,12 @@ workers: 12
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
 experiment_name: "CLIP_CLEAN_CIFAR100C"
-checkpoint_path: "/work2/04703/sravula/maverick2/Logs/Contrastive-Inversion/CLIP_RN101_CLEAN_LINEAR/checkpoints/epoch=24-step=3099.ckpt"
+checkpoint_path: "/work2/04703/sravula/maverick2/Logs/Contrastive-Inversion/CLIP_CIFAR100_TRANSFER_CLEAN/checkpoints/epoch=9-step=979.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "None"
 
-saved_model_type: "baseline"
-
-encoder: "resnet"
+encoder: "clip"
 
 #logging
 log_save_interval: 1 #set this to be equal to num_epochs if row_log_interval is 1

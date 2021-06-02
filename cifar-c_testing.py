@@ -14,6 +14,8 @@ from torch.utils.data  import DataLoader
 from linear_probe import LinearProbe
 from baselines import Baseline
 from zeroshot_validation import NoisyCLIPTesting
+from transfer_learning import TransferLearning
+
 
 DISTORTIONS = ['blur', 'digital', 'extra', 'noise', 'weather']
 SUB_DISTORTIONS = {'blur': ['defocus_blur', 'glass_blur', 'motion_blur', 'zoom_blur'],
@@ -99,13 +101,7 @@ def noise_level_eval():
             for level in LEVELS:
                 print(level)
 
-                #Choose the appropriate model based on type, and load from checkpoint.
-                if args.saved_model_type == 'linear':
-                    saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
-                elif args.saved_model_type == 'baseline':
-                    saved_model = Baseline.load_from_checkpoint(args.checkpoint_path)
-                elif args.saved_model_type == 'zeroshot':
-                    saved_model = NoisyCLIPTesting(args, args.checkpoint_path)
+                saved_model = TransferLearning.load_from_checkpoint(args.checkpoint_path)
 
                 test_data = CIFARC_DATASET(args, sub_distortion=sub_distortion, level=level)
                 results = trainer.test(model=saved_model, datamodule=test_data, verbose=False)
