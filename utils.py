@@ -1005,11 +1005,11 @@ class ImageNet100C(ImageFolder):
 
 class CIFARC(torch.utils.data.Dataset):
     def __init__(self, root, sub_distortion, level, transform=None):
-        super(CIFAR10C, self).__init__()
+        super(CIFARC, self).__init__()
         
         self.transform = transform
         
-        start_index = (level - 1) * 10000
+        start_index = (int(level) - 1) * 10000
         end_index = start_index + 10000
         
         self.data = np.load(root + "/" + sub_distortion + ".npy")[start_index:end_index]
