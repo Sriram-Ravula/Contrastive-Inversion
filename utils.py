@@ -1003,6 +1003,34 @@ class ImageNet100C(ImageFolder):
     def split_folder(self) -> str:
         return self.root
 
+class CIFARC(torch.utils.data.Dataset):
+    def __init__(self, root, sub_distortion, level, transform=None):
+        super(CIFAR10C, self).__init__()
+        
+        self.transform = transform
+        
+        start_index = (level - 1) * 10000
+        end_index = start_index + 10000
+        
+        self.data = np.load(root + "/" + sub_distortion + ".npy")[start_index:end_index]
+        self.data = torch.from_numpy(self.data).permute(0, 3, 1, 2)
+        
+        self.labels = np.load(root + "/labels.npy")
+        self.labels = torch.from_numpy(self.labels)
+        
+    def __getitem__(self, index):
+        x = self.data[index]
+        y = self.labels[index]
+        
+        x = transforms.ToPILImage()(x)
+        
+        if self.transform is not None:
+            x = self.transform(x)
+        
+        return x, y
+    
+    def __len__(self):
+        return 10000
 
 def img_grid(data):
     """
