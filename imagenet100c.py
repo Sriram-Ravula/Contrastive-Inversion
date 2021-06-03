@@ -36,7 +36,7 @@ class ImageNet100CTest(LightningDataModule):
 
         self.distortion = distortion
         self.sub_distortion = sub_distortion
-        self.level = level 
+        self.level = level
 
         self.dataset_dir = self.hparams.dataset_dir
 
@@ -70,7 +70,7 @@ def grab_config():
 
 def noise_level_eval():
     args = grab_config()
-    args.gpus = [2] # Force evaluation in a single gpu.
+    args.gpus = [0] # Force evaluation in a single gpu.
 
     seed_everything(42)
 
@@ -107,7 +107,7 @@ def noise_level_eval():
 
                 test_data = ImageNet100CTest(args, distortion=distortion, sub_distortion=sub_distortion, level=level)
                 results = trainer.test(model=saved_model, datamodule=test_data, verbose=False)
-        
+
                 top1_accs = results[0]['test_top_1']
                 top5_accs = results[0]['test_top_5'] #[x['test_top_5'] for x in results]
 

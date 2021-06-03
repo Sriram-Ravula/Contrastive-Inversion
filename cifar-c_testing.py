@@ -33,7 +33,7 @@ class CIFARC_DATASET(LightningDataModule):
         self.hparams = args
 
         self.sub_distortion = sub_distortion
-        self.level = level 
+        self.level = level
 
         self.dataset_dir = self.hparams.dataset_dir
 
@@ -46,14 +46,14 @@ class CIFARC_DATASET(LightningDataModule):
         dataset = CIFARC(self.dataset_dir, self.sub_distortion, self.level, self.val_set_transform)
 
         return dataset
-    
+
     def setup(self, stage=None):
         self.val_data = self._grab_dataset()
 
     def test_dataloader(self):
         #SHUFFLE TRUE FOR COVID AUROC STABILITY
         return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, worker_init_fn=(lambda wid: np.random.seed(int(torch.rand(1)[0]*1e6) + wid)), pin_memory=True, shuffle=True)
-    
+
     def predict_dataloader(self):
         #SHUFFLE TRUE FOR COVID AUROC STABILITY
         return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, worker_init_fn=(lambda wid: np.random.seed(int(torch.rand(1)[0]*1e6) + wid)), pin_memory=True, shuffle=True)
@@ -74,7 +74,7 @@ def grab_config():
 
 def noise_level_eval():
     args = grab_config()
-    args.gpus = [3] # Force evaluation in a single gpu.
+    args.gpus = [0] # Force evaluation in a single gpu.
 
     seed_everything(42)
 
@@ -105,7 +105,7 @@ def noise_level_eval():
 
                 test_data = CIFARC_DATASET(args, sub_distortion=sub_distortion, level=level)
                 results = trainer.test(model=saved_model, datamodule=test_data, verbose=False)
-        
+
                 top1_accs = results[0]['test_top_1']
                 top5_accs = results[0]['test_top_5'] #[x['test_top_5'] for x in results]
 

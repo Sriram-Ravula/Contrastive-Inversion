@@ -77,6 +77,9 @@ def noise_level_eval():
     if not os.path.exists(os.path.join(args.results_dir, args.experiment_name)):
         os.mkdir(os.path.join(args.results_dir, args.experiment_name))
 
+    if not isinstance(args.noise_levels, list):
+        args.noise_levels = [args.noise_levels]
+
     for noise_level in args.noise_levels:
         all_results = []
         for test in range(args.num_tests):
@@ -106,7 +109,7 @@ def noise_level_eval():
             all_results.extend(results)
 
             print("Done with " + str(noise_level))
-    
+
         top1_accs = [x['test_top_1'] for x in all_results]
         top5_accs = [x['test_top_5'] for x in all_results]
         with open(os.path.join(args.results_dir, args.experiment_name, 'ood_noise_level_{0:}.out'.format(int(100*noise_level))), 'w+') as f:

@@ -16,8 +16,8 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "blur21"
-checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/Noisy_RN101_blur21_contrastive/checkpoints/epoch=24-step=12374.ckpt"
+experiment_name: "blur21_st"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/blur21_st/checkpoints/epoch=24-step=12374.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "gaussianblur" #randommask or squaremask
@@ -35,7 +35,7 @@ use_subset: True
 subset_ratio: 0.1
 
 #logging
-log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+log_save_interval: 10 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 logdir: "/tmp/Logs"
 

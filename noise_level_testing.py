@@ -42,6 +42,8 @@ class ImageNet100Test(LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, worker_init_fn=(lambda wid: np.random.seed(int(torch.rand(1)[0]*1e6) + wid)), pin_memory=True, shuffle=False)
+    def predict_dataloader(self):
+        return self.test_dataloader()
 
 
 def grab_config():
@@ -76,6 +78,8 @@ def noise_level_eval():
     if not os.path.exists(os.path.join(args.results_dir, args.experiment_name)):
         os.mkdir(os.path.join(args.results_dir, args.experiment_name))
 
+    if not isinstance(args.noise_levels, list):
+        args.noise_levels = [args.noise_levels]
 
     for noise_level in args.noise_levels:
         all_results = []
@@ -106,7 +110,7 @@ def noise_level_eval():
             all_results.extend(results)
 
             print("Done with " + str(noise_level))
-    
+
         top1_accs = [x['test_top_1'] for x in all_results]
         top5_accs = [x['test_top_5'] for x in all_results]
         with open(os.path.join(args.results_dir, args.experiment_name, 'noise_level_{0:}.out'.format(int(100*noise_level))), 'w+') as f:

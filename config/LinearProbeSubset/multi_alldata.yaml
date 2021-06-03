@@ -16,8 +16,8 @@ distributed_backend: "ddp"
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "multi"
-checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_Adam/Noisy_RN101_multi/checkpoints/epoch=49-step=24749.ckpt"
+experiment_name: "multi_st"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_RN101_100_200/multi_st/checkpoints/epoch=99-step=49499.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 distortion: "multi" #randommask or squaremask
@@ -32,7 +32,7 @@ use_subset: False
 #subset_ratio: 0.1
 
 #logging
-log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+log_save_interval: 10 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 logdir: "/tmp/Logs"
 

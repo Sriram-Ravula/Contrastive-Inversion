@@ -8,6 +8,7 @@ import torchvision.models as models
 
 import torch.nn as nn
 
+from clip_files import clip
 from utils import *
 
 from pytorch_lightning import Trainer, LightningModule, LightningDataModule, seed_everything
@@ -28,7 +29,7 @@ class LinearProbe(LightningModule):
 
         #(1) Set up the dataset
         #Here, we use a 100-class subset of ImageNet
-        if self.hparams.dataset != "ImageNet100":
+        if self.hparams.dataset not in ["ImageNet100", "CIFAR10", "CIFAR100"]:
             raise ValueError("Unsupported dataset selected.")
         else:
             if self.hparams.distortion == "None":
@@ -50,10 +51,14 @@ class LinearProbe(LightningModule):
         #This should be initialised as a trained student CLIP network
         if self.hparams.encoder == "clip":
             saved_student = NoisyCLIP.load_from_checkpoint(self.hparams.checkpoint_path)
-            self.backbone = saved_student.noisy_visual_encoder
+            self.backbone = saved_student.noisy_visual_encoder            
         elif self.hparams.encoder == "resnet":
             saved_student = NoisyContrastiveBaseline.load_from_checkpoint(self.hparams.checkpoint_path)
             self.backbone = saved_student.student
+        elif self.hparams.encoder == "clean":
+            saved_student = clip.load('RN101', 'cpu', jit=False)[0]
+            self.backbone = saved_student.visual
+
 
         self.backbone.eval()
         for param in self.backbone.parameters():
@@ -85,6 +90,8 @@ class LinearProbe(LightningModule):
                 noisy_embeddings = self.backbone(x.type(torch.float16)).float()
             elif self.hparams.encoder == "resnet":
                 noisy_embeddings = self.backbone(x)
+            elif self.hparams.encoder == "clean":
+                noisy_embeddings = self.backbone(x.type(torch.float16)).float()
 
         return self.output(noisy_embeddings)
 

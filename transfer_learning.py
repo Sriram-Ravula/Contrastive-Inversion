@@ -134,7 +134,7 @@ class TransferLearning(LightningModule):
                 train = False
                 transform = self.val_set_transform
             
-            dataset = CIFAR10(root=self.hparams.dataset_dir, train=train, transform=transform)
+            dataset = CIFAR10(root=self.hparams.dataset_dir, train=train, transform=transform, download=True)
         
         elif self.hparams.dataset == "CIFAR100":
             if split == 'train':
@@ -144,7 +144,7 @@ class TransferLearning(LightningModule):
                 train = False
                 transform = self.val_set_transform
             
-            dataset = CIFAR100(root=self.hparams.dataset_dir, train=train, transform=transform)
+            dataset = CIFAR100(root=self.hparams.dataset_dir, train=train, transform=transform, download=True)
         
         elif self.hparams.dataset == 'STL10':
             if split == 'train':
@@ -154,7 +154,26 @@ class TransferLearning(LightningModule):
                 stlsplit = 'test'
                 transform = self.val_set_transform
             
-            dataset = STL10(root=self.hparams.dataset_dir, split=stlsplit, transform = transform)
+            dataset = STL10(root=self.hparams.dataset_dir, split=stlsplit, transform = transform, download=True)
+
+        elif self.hparams.dataset == 'COVID':
+            if split == 'train':
+                covidsplit = 'train'
+                transform = self.train_set_transform
+            else:
+                covidsplit = 'test'
+                transform = self.val_set_transform
+            
+            dataset = torchvision.datasets.ImageFolder(root = self.hparams.dataset_dir + covidsplit, transform=transform)
+        
+        elif self.hparams.dataset == 'ImageNet100B' or self.hparams.dataset == 'imagenet-100B':
+            if split == 'train':
+                transform = self.train_set_transform
+            else:
+                split = 'val'
+                transform = self.val_set_transform
+            
+            dataset = ImageNet100(root = self.hparams.dataset_dir, split=split, transform=transform)
 
         elif self.hparams.dataset == 'COVID':
             if split == 'train':

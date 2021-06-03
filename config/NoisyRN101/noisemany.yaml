@@ -35,8 +35,8 @@ workers: 12
 distributed_backend: "dp"
 
 #training
-max_epochs: 25
-log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+max_epochs: 175
+log_save_interval: 175 #set this to be equal to num_epochs if row_log_interval is 1
 row_log_interval: 1
 sync_bn: True
 

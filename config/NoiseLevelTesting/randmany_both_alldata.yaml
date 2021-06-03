@@ -1,0 +1,38 @@
+#seed - SAME BETWEEN RUNS
+
+#data - SAME BETWEEN RUNS
+dataset_dir: "/tmp/imagenet100/"
+dataset: "ImageNet100"
+num_classes: 100
+emb_dim: 512
+
+#distributed training - SAME BETWEEN RUNS
+num_nodes: 1
+gpus: 4
+workers: 12
+#distributed_backend: "ddp"
+
+###############################################
+
+#Experiment Stuff - CHANGE BETWEEN RUNS
+experiment_name: "randmany_both_alldata"
+checkpoint_path: "/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_Linear_ST/randmany_both_alldata/checkpoints/epoch=9-step=2479.ckpt"
+
+#Distortions and parameters - CHANGE BETWEEN RUNS
+distortion: "randommask" #randommask or squaremask
+noise_levels: [0.5,0.75,0.8,0.9,0.93,0.95,0.96,0.97,0.98,0.99]
+fixed_mask: False
+saved_model_type: "linear"
+num_tests: 10
+
+encoder: "clip"
+
+#logging
+log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+row_log_interval: 1
+logdir: "/tmp/Logs"
+
+results_dir: './results'
+
+#validation
+check_val_every_n_epoch: 1

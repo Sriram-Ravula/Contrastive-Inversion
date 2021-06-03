@@ -28,7 +28,7 @@ class TransferTestDataset(LightningDataModule):
             elif self.hparams.distortion == "multi":
                 self.val_set_transform = GeneralDistortValMulti(self.hparams)
             else:
-                self.val_set_transform = GeneralDistortVal(self.hparams)        
+                self.val_set_transform = GeneralDistortVal(self.hparams)
 
         elif self.hparams.dataset == 'COVID' or self.hparams.dataset == 'ImageNet100B' or self.hparams.dataset == 'imagenet-100B':
             #Get the correct image transform
@@ -37,35 +37,35 @@ class TransferTestDataset(LightningDataModule):
             elif self.hparams.distortion == "multi":
                 self.val_set_transform = ImageNetDistortValMulti(self.hparams)
             else:
-                self.val_set_transform = ImageNetDistortVal(self.hparams)      
+                self.val_set_transform = ImageNetDistortVal(self.hparams)
 
     def _grab_dataset(self):
         transform = self.val_set_transform
 
         if self.hparams.dataset == "CIFAR10":
-            dataset = CIFAR10(root=self.hparams.dataset_dir, train=False, transform=transform)
-        
+            dataset = CIFAR10(root=self.hparams.dataset_dir, train=False, transform=transform, download=True)
+
         elif self.hparams.dataset == "CIFAR100":
-            dataset = CIFAR100(root=self.hparams.dataset_dir, train=False, transform=transform)
-        
+            dataset = CIFAR100(root=self.hparams.dataset_dir, train=False, transform=transform, download=True)
+
         elif self.hparams.dataset == 'STL10':
-            dataset = STL10(root=self.hparams.dataset_dir, split='test', transform = transform)
+            dataset = STL10(root=self.hparams.dataset_dir, split='test', transform = transform, download=True)
 
         elif self.hparams.dataset == 'COVID':
             dataset = torchvision.datasets.ImageFolder(root = self.hparams.dataset_dir + 'test', transform=transform)
-        
+
         elif self.hparams.dataset == 'ImageNet100B' or self.hparams.dataset == 'imagenet-100B':
             dataset = ImageNet100(root = self.hparams.dataset_dir, split='val', transform=transform)
 
         return dataset
-    
+
     def setup(self, stage=None):
         self.val_data = self._grab_dataset()
 
     def test_dataloader(self):
         #SHUFFLE TRUE FOR COVID AUROC STABILITY
         return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, worker_init_fn=(lambda wid: np.random.seed(int(torch.rand(1)[0]*1e6) + wid)), pin_memory=True, shuffle=True)
-    
+
     def predict_dataloader(self):
         #SHUFFLE TRUE FOR COVID AUROC STABILITY
         return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, worker_init_fn=(lambda wid: np.random.seed(int(torch.rand(1)[0]*1e6) + wid)), pin_memory=True, shuffle=True)
@@ -118,7 +118,7 @@ def transfer_eval():
         top5_accs = [x['test_top_5'] for x in all_results]
     else:
         auroc = [x['test_auc'] for x in all_results]
-    
+
     results_file = os.path.join(args.results_dir, args.experiment_name, args.dataset + args.distortion + '.out')
 
     with open(results_file, 'w+') as f:
