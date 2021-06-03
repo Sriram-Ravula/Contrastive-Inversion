@@ -1,0 +1,66 @@
+rm: cannot remove ‘/tmp/lastjobinfo’: Operation not permitted
+rm: cannot remove ‘/tmp/losf’: Operation not permitted
+rm: cannot remove ‘/tmp/losf_last_update’: Operation not permitted
+rm: cannot remove ‘/tmp/moduleData/cacheDir/spiderT.luac_5.1’: Permission denied
+rm: cannot remove ‘/tmp/moduleData/reverseMapD’: Permission denied
+rm: cannot remove ‘/tmp/slurmd/cred_state.old’: Permission denied
+rm: cannot remove ‘/tmp/slurmd/cred_state’: Permission denied
+rm: cannot remove ‘/tmp/slurmd/job3068792/slurm_script’: Permission denied
+rm: cannot remove ‘/tmp/slurmd/c197-071_3068792.4294967294’: Permission denied
+rm: cannot remove ‘/tmp/slurmd/hwloc_topo_3068792.4294967294.xml’: Permission denied
+rm: cannot remove ‘/tmp/slurm-epilog.log_2992513’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_2992716’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_2993824’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_2997368’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_2998054’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_2998548’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_2998797’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_2998995’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_2999258’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_2999393’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_2999611’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_2999880’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3000194’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3000247’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3001080’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3001088’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3001408’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3009009’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3017650’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3026002’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3036959’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3037798’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3038302’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3044767’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3062093’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3067055’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-epilog.log_3067968’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_2992716’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_2993824’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_2997368’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_2998054’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_2998548’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_2998797’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_2998995’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_2999258’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_2999393’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_2999611’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_2999880’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3000194’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3000247’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3001080’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3001088’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3001408’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3009009’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3017650’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3026002’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3036959’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3037798’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3038302’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3044767’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3062093’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3067055’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3067968’: Operation not permitted
+rm: cannot remove ‘/tmp/slurm-prolog.log_3068792’: Operation not permitted
+rm: cannot remove ‘/tmp/user_env_epilog’: Operation not permitted
+num GPUs 1

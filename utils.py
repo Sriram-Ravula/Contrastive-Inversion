@@ -50,6 +50,7 @@ class RandomMask(object):
             self.mask = mask
 
         if self.return_mask:
+            self.return_mask = False
             return image*mask.view(h, w), mask
              
         return image*mask.view(h, w)
