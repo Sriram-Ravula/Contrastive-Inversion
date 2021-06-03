@@ -12,9 +12,7 @@ from skimage.restoration import denoise_nl_means, estimate_sigma
 
 class BaselineDenoiseDistortVal:
     """
-    Torchvision composition of transforms to produce ImageNet images with a distortion.
-    For training, this class will apply a random crop and random horizontal flip as well.
-    Explicitly saves the distortion as a class variable to use for fixed masks in validation transform if needed.
+    Wrapper for the denoising transformation performed via NLMeans.
     """
     def __init__(self, args, epoch=None):
         if args.encoder == "clip":

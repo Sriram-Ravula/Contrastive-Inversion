@@ -10,6 +10,9 @@ from torchvision.datasets.folder import make_dataset
 
 
 def convnoise(x, epoch=None):
+    """
+    Function which adds a possibility of increasing noise levels.
+    """
     if epoch is None:
         return x
     else:
@@ -52,7 +55,7 @@ class RandomMask(object):
         if self.return_mask:
             self.return_mask = False
             return image*mask.view(h, w), mask
-             
+
         return image*mask.view(h, w)
 
 class SquareMask(object):
@@ -153,6 +156,10 @@ class GaussianNoise(object):
         return image + noise
 
 class GeneralBaseTransform:
+    """
+    Transform to be used for CIFAR10, CIFAR100, and STL10 datasets.
+    This adds no distortion to the image.
+    """
     def __init__(self, args):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
@@ -174,6 +181,10 @@ class GeneralBaseTransform:
         return self.transform(x)
 
 class GeneralBaseTransformVal:
+    """
+    Transform to be used for CIFAR10, CIFAR100, and STL10 datasets.
+    This adds no distortion to the image, and also performs no flipping.
+    """
     def __init__(self, args):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
@@ -194,6 +205,10 @@ class GeneralBaseTransformVal:
         return self.transform(x)
 
 class GeneralDistortTrain:
+    """
+    Transform to be used for CIFAR10, CIFAR100, and STL10 datasets.
+    This adds the required distortion to the image, to be used for training.
+    """
     def __init__(self, args, epoch=None):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
@@ -226,6 +241,10 @@ class GeneralDistortTrain:
         return self.transform(x)
 
 class GeneralDistortVal:
+    """
+    Transform to be used for CIFAR10, CIFAR100, and STL10 datasets.
+    This adds the required distortion to the image, but no random flipping, to be used for validation.
+    """
     def __init__(self, args, epoch=None):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
@@ -257,6 +276,10 @@ class GeneralDistortVal:
         return self.transform(x)
 
 class GeneralDistortTrainMulti:
+    """
+    Transform to be used for CIFAR10, CIFAR100, and STL10 datasets.
+    This adds a series of various distortion to the image.
+    """
     def __init__(self, args):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
@@ -295,6 +318,10 @@ class GeneralDistortTrainMulti:
         return self.transform(x)
 
 class GeneralDistortValMulti:
+    """
+    Transform to be used for CIFAR10, CIFAR100, and STL10 datasets.
+    This adds a series of various distortion to the image, but no random flipping.
+    """
     def __init__(self, args):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
@@ -411,6 +438,11 @@ class ImageNetBaseTrainContrastive:
         return x_clean, x_clean_copy
 
 class ImageNetBaseTrainContrastiveDecoupled:
+    """
+    Torchvision composition of transforms to produce ImageNet images with a distortion.
+    For training, this class will apply a random crop and random horizontal flip as well.
+    This explicitly returns a pair of images (clean, clean) with different random crop and flip.
+    """
     def __init__(self, args):
         if args.encoder == "clip":
             normalize = transforms.Normalize(
@@ -690,13 +722,30 @@ class ImageNetDistortValMulti:
 class ImageNetDistortTrainMultiContrastive:
     """
     Applies a distortive transform to one copy of an image and a simple random crop and flip to another copy.
+    Transformations are chosen based on mode:
 
+    Mode 1:
     Random distortions on the distorted copy are:
     Random Crop to 224x224, Random horizontal clip p=0.5,
-    Random color jitter p=0.8 (max adjustment for: brightness=0.4, contrast=0.4, saturation=0.2, hue=0.1),
-    Random Gaussian Blur p=0.1 (kernel 23x23, std unformly random in [0.1, 0.2]),
-    Random Gaussian Noise p=0.2 (std uniformly random in [0.1, 0.3]),
-    Random Pixel Mask p=0.3 (percentage masked uniformly random in [0.5, 0.95]).
+    Random color jitter p=0.5 (max adjustment for: brightness=0.4, contrast=0.4, saturation=0.2, hue=0.1),
+    Random Gaussian Blur p=0.4 (kernel 23x23, std unformly random in [1, 5]),
+    Random Gaussian Noise p=0.4 (std uniformly random in [0.1, 0.5]),
+    Random Pixel Mask p=0.1 (percentage masked uniformly random in [0.25, 0.5]).
+
+    Mode 2:
+    Distortions are the same as in mode 1, but at most one is applied each time.
+    With p=0.6, one distortion is applied, chosen with probability proportional to the ones above.
+    With p=0.4, no distortion is applied.
+
+    Mode 1:
+    Random distortions on the distorted copy are:
+    Random Gaussian Blur p=0.8 (kernel 23x23, std unformly random in [1, 5]),
+    Random Gaussian Noise p=0.8 (std uniformly random in [0.05, 0.5]),
+
+    Mode 2:
+    Distortions are the same as in mode 3, but at most one is applied each time.
+    With p=0.6, one distortion is applied, chosen with probability proportional to the ones above.
+    With p=0.4, no distortion is applied.
 
     Returns a pair of images (clean, distorted)
     """
@@ -711,20 +760,8 @@ class ImageNetDistortTrainMultiContrastive:
             )
 
         randcrop = transforms.RandomResizedCrop(224)
-
         randflip = transforms.RandomHorizontalFlip()
 
-        jitter = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
-        randjitter = transforms.RandomApply([jitter], p=0.5)
-
-        blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
-        randblur = transforms.RandomApply([blur], p=0.4)
-
-        noise = GaussianNoise(std=[0.1, 0.5], fixed=False)
-        randnoise = transforms.RandomApply([noise], p=0.4)
-
-        mask = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
-        randmask = transforms.RandomApply([mask], p=0.1)
 
         self.transform_common = transforms.Compose([
             randcrop,
@@ -735,15 +772,86 @@ class ImageNetDistortTrainMultiContrastive:
             transforms.ToTensor(),
             normalize
         ])
+        if not args.mode or args.mode == 1:
+            jitter = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
+            randjitter = transforms.RandomApply([jitter], p=0.5)
 
-        self.transform_distort = transforms.Compose([
-            randjitter,
-            transforms.ToTensor(),
-            randblur,
-            randnoise,
-            randmask,
-            normalize
-        ])
+            blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
+            randblur = transforms.RandomApply([blur], p=0.4)
+
+            noise = GaussianNoise(std=[0.1, 0.5], fixed=False)
+            randnoise = transforms.RandomApply([noise], p=0.4)
+
+            mask = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
+            randmask = transforms.RandomApply([mask], p=0.1)
+
+            self.transform_distort = transforms.Compose([
+                randjitter,
+                transforms.ToTensor(),
+                randblur,
+                randnoise,
+                randmask,
+                normalize
+            ])
+        elif args.mode == 2:
+            rng = torch.rand(1).item()
+            if rng < 0.6*0.5/1.4:
+                distort = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
+            elif rng < 0.6*0.9/1.4:
+                distort = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
+            elif rng < 0.6*1.3/1.4:
+                distort = GaussianNoise(std=[0.1, 0.5], fixed=False)
+            elif rng < 0.6:
+                distort = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
+
+            if rng < 0.6*0.5/1.4:
+                self.transform_distort = transforms.Compose([
+                    distort,
+                    transforms.ToTensor(),
+                    normalize
+                ])
+            elif rng < 0.6:
+                self.transform_distort = transforms.Compose([
+                    transforms.ToTensor(),
+                    distort,
+                    normalize
+                ])
+            else:
+                self.transform_distort = transforms.Compose([
+                    transforms.ToTensor(),
+                    normalize
+                ])
+        elif args.mode == 3:
+            blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
+            randblur = transforms.RandomApply([blur], p=0.8)
+
+            noise = GaussianNoise(std=[0.05, 0.5], fixed=False)
+            randnoise = transforms.RandomApply([noise], p=0.8)
+
+            self.transform_distort = transforms.Compose([
+                transforms.ToTensor(),
+                randblur,
+                randnoise,
+                normalize
+            ])
+        elif args.mode == 4:
+            rng = torch.rand(1).item()
+            if rng < 0.6*0.8/1.6:
+                distort = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
+            elif rng < 0.6:
+                distort = GaussianNoise(std=[0.1, 0.5], fixed=False)
+
+            if rng < 0.6:
+                self.transform_distort = transforms.Compose([
+                    transforms.ToTensor(),
+                    distort,
+                    normalize
+                ])
+            else:
+                self.transform_distort = transforms.Compose([
+                    transforms.ToTensor(),
+                    normalize
+                ])
 
     def __call__(self, x):
         x_temp = self.transform_common(x)
@@ -1003,39 +1111,10 @@ class ImageNet100C(ImageFolder):
         self.idx_to_class = {idx: cls
                              for idx, clss in enumerate(self.classes)
                              for i, cls in enumerate(clss) if i == 0}
-    
+
     @property
     def split_folder(self) -> str:
         return self.root
-
-class CIFARC(torch.utils.data.Dataset):
-    def __init__(self, root, sub_distortion, level, transform=None):
-        super(CIFARC, self).__init__()
-        
-        self.transform = transform
-        
-        start_index = (int(level) - 1) * 10000
-        end_index = start_index + 10000
-        
-        self.data = np.load(root + "/" + sub_distortion + ".npy")[start_index:end_index]
-        self.data = torch.from_numpy(self.data).permute(0, 3, 1, 2)
-        
-        self.labels = np.load(root + "/labels.npy")
-        self.labels = torch.from_numpy(self.labels)
-        
-    def __getitem__(self, index):
-        x = self.data[index]
-        y = self.labels[index]
-        
-        x = transforms.ToPILImage()(x)
-        
-        if self.transform is not None:
-            x = self.transform(x)
-        
-        return x, y
-    
-    def __len__(self):
-        return 10000
 
 def img_grid(data):
     """

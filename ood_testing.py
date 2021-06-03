@@ -17,7 +17,7 @@ from baselines import Baseline
 class ImageNet100Test(LightningDataModule):
     """
     This class loads the validation set of ImageNet100, to be used only for testing.
-    Implemented separately because it is linked to both end-to-end suprevised and contrastive training.
+    In this case, the dataset loaded contains the altered, out-of-distribution labels.
     """
     def __init__(self, args):
         super(ImageNet100Test, self).__init__()
@@ -86,7 +86,7 @@ def noise_level_eval():
                 saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
             elif args.saved_model_type == 'baseline':
                 saved_model = Baseline.load_from_checkpoint(args.checkpoint_path)
-            
+
             # Correctly define noise levels to test.
             if args.distortion == "squaremask":
                 args.length = noise_level

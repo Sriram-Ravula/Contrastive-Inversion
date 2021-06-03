@@ -101,13 +101,13 @@ def noise_level_eval():
                     saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
                 elif args.saved_model_type == 'baseline':
                     saved_model = Baseline.load_from_checkpoint(args.checkpoint_path)
-                
+
                 #Load the appropriate data and run the test once with the saved model
                 test_data = ImageNet100CTest(args, distortion=distortion, sub_distortion=sub_distortion, level=level)
                 results = trainer.test(model=saved_model, datamodule=test_data, verbose=False)
 
                 top1_accs = results[0]['test_top_1']
-                top5_accs = results[0]['test_top_5'] #[x['test_top_5'] for x in results]
+                top5_accs = results[0]['test_top_5']
 
                 print(top1_accs)
 
