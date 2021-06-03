@@ -49,10 +49,6 @@ def grab_config():
 
 class ImageNetBaseTransformVal:
     def __init__(self):
-        normalize = transforms.Normalize(
-            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        )
-
         self.transform = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
@@ -83,11 +79,21 @@ mask = torch.cat(3*[mask]).unsqueeze(0)
 mask = mask.to('cuda')
 
 rnd = 500
-numit = 1000
+numit = 5000
 rn = 0.005
+num_channels = [256]*5
 
 top_1 = 0
 top_5 = 0
+
+if args.encoder == "clip":
+    normalize = transforms.Normalize(
+        mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
+    )
+else:
+    normalize = transforms.Normalize(
+        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    )
 
 if not os.path.exists(args.results_dir):
     os.mkdir(args.results_dir)
@@ -95,7 +101,8 @@ if not os.path.exists(args.results_dir):
 for i, batch in enumerate(loader):
     x, y = batch
 
-    num_channels = [256]*5
+    x = distortion(x)
+
     net = decodernw(3,num_channels_up=num_channels,upsample_first = True).type(dtype).to('cuda')
 
     x = x.to('cuda')
@@ -113,6 +120,7 @@ for i, batch in enumerate(loader):
                             )
 
     out_img = net( ni.type(dtype) ).data
+    out_img = normalize(out_img)
     
     logits = saved_model(out_img).squeeze()
 
@@ -126,7 +134,7 @@ for i, batch in enumerate(loader):
         top_5 = top_5 + 1
         print("TOP 5")
     
-    if i == 1000:
+    if i >= 4999:
         top_1 = top_1 / i
         top_5 = top_5 / i
 

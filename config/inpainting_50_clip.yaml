@@ -16,7 +16,7 @@ workers: 1
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "CLIP_INPAINTING_50"
+experiment_name: "CLIP_INPAINTING_50_2000"
 checkpoint_path: "/work2/04703/sravula/maverick2/Logs/Contrastive-Inversion/CLIP_RN101_CLEAN_LINEAR/checkpoints/epoch=24-step=3099.ckpt"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
