@@ -24,35 +24,37 @@ SUB_DISTORTIONS = {'blur': ['defocus_blur', 'glass_blur', 'motion_blur', 'zoom_b
                     }
 LEVELS = ['1','2','3','4','5']
 
-class ImageNet100CTest(LightningDataModule):
-    """
-    This class loads the validation set of ImageNet100C, to be used only for testing.
-    Implemented separately because it is linked to both end-to-end suprevised and contrastive training.
-    """
-    def __init__(self, args, distortion, sub_distortion, level):
-        super(ImageNet100CTest, self).__init__()
+class CIFARC_DATASET(LightningDataModule):
+    def __init__(self, args, sub_distortion, level):
+        super(CIFARC_DATASET, self).__init__()
 
         self.hparams = args
 
-        self.distortion = distortion
         self.sub_distortion = sub_distortion
         self.level = level 
 
         self.dataset_dir = self.hparams.dataset_dir
 
-        self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
+        if self.hparams.dataset == "CIFAR10-C" or self.hparams.dataset == "CIFAR100-C":
+            self.val_set_transform = GeneralBaseTransformVal(self.hparams)
+        else:
+            raise ValueError("Please select a valid Dataset")
 
+    def _grab_dataset(self):
+        dataset = CIFARC(self.dataset_dir, self.sub_distortion, self.level, self.val_set_transform)
+
+        return dataset
+    
     def setup(self, stage=None):
-        self.val_data = ImageNet100C(
-            root=self.hparams.dataset_dir,
-            distortion=self.distortion,
-            sub_distortion=self.sub_distortion,
-            level = self.level,
-            transform=self.val_set_transform
-        )
+        self.val_data = self._grab_dataset()
 
     def test_dataloader(self):
-        return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, worker_init_fn=(lambda wid: np.random.seed(int(torch.rand(1)[0]*1e6) + wid)), pin_memory=True, shuffle=False)
+        #SHUFFLE TRUE FOR COVID AUROC STABILITY
+        return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, worker_init_fn=(lambda wid: np.random.seed(int(torch.rand(1)[0]*1e6) + wid)), pin_memory=True, shuffle=True)
+    
+    def predict_dataloader(self):
+        #SHUFFLE TRUE FOR COVID AUROC STABILITY
+        return DataLoader(self.val_data, batch_size=512, num_workers=self.hparams.workers, worker_init_fn=(lambda wid: np.random.seed(int(torch.rand(1)[0]*1e6) + wid)), pin_memory=True, shuffle=True)
 
 
 def grab_config():
@@ -70,7 +72,7 @@ def grab_config():
 
 def noise_level_eval():
     args = grab_config()
-    args.gpus = [1] # Force evaluation in a single gpu.
+    args.gpus = [0] # Force evaluation in a single gpu.
 
     seed_everything(42)
 
@@ -99,13 +101,13 @@ def noise_level_eval():
 
                 #Choose the appropriate model based on type, and load from checkpoint.
                 if args.saved_model_type == 'linear':
-                    saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
+                    saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path).eval()
                 elif args.saved_model_type == 'baseline':
                     saved_model = Baseline.load_from_checkpoint(args.checkpoint_path)
                 elif args.saved_model_type == 'zeroshot':
                     saved_model = NoisyCLIPTesting(args, args.checkpoint_path)
-
-                test_data = ImageNet100CTest(args, distortion=distortion, sub_distortion=sub_distortion, level=level)
+                
+                test_data = CIFARC_DATASET(args, sub_distortion=sub_distortion, level=level)
                 results = trainer.test(model=saved_model, datamodule=test_data, verbose=False)
         
                 top1_accs = results[0]['test_top_1']

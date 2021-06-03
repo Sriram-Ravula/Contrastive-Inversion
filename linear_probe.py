@@ -29,7 +29,7 @@ class LinearProbe(LightningModule):
 
         #(1) Set up the dataset
         #Here, we use a 100-class subset of ImageNet
-        if self.hparams.dataset != "ImageNet100":
+        if self.hparams.dataset not in ["ImageNet100", "CIFAR10", "CIFAR100"]:
             raise ValueError("Unsupported dataset selected.")
         else:
             if self.hparams.distortion == "None":

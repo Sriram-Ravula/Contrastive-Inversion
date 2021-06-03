@@ -706,9 +706,21 @@ class ImageNetDistortTrainMultiContrastive:
             )
 
         randcrop = transforms.RandomResizedCrop(224)
+
         randflip = transforms.RandomHorizontalFlip()
 
-        
+        jitter = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
+        randjitter = transforms.RandomApply([jitter], p=0.5)
+
+        blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
+        randblur = transforms.RandomApply([blur], p=0.4)
+
+        noise = GaussianNoise(std=[0.1, 0.5], fixed=False)
+        randnoise = transforms.RandomApply([noise], p=0.4)
+
+        mask = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
+        randmask = transforms.RandomApply([mask], p=0.1)
+
         self.transform_common = transforms.Compose([
             randcrop,
             randflip
@@ -718,88 +730,15 @@ class ImageNetDistortTrainMultiContrastive:
             transforms.ToTensor(),
             normalize
         ])
-        if not args.mode or args.mode == 1:
-            jitter = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
-            randjitter = transforms.RandomApply([jitter], p=0.5)
 
-            blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
-            randblur = transforms.RandomApply([blur], p=0.4)
-
-            noise = GaussianNoise(std=[0.1, 0.5], fixed=False)
-            randnoise = transforms.RandomApply([noise], p=0.4)
-
-            mask = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
-            randmask = transforms.RandomApply([mask], p=0.1)
-
-            self.transform_distort = transforms.Compose([
-                randjitter,
-                transforms.ToTensor(),
-                randblur,
-                randnoise,
-                randmask,
-                normalize
-            ])
-        elif args.mode == 2:
-            rng = torch.rand(1).item()
-            if rng < 0.6*0.5/1.4:
-                distort = transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)
-            elif rng < 0.6*0.9/1.4:
-                distort = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
-            elif rng < 0.6*1.3/1.4:
-                distort = GaussianNoise(std=[0.1, 0.5], fixed=False)
-            elif rng < 0.6:
-                distort = RandomMask(percent_missing=[0.25, 0.50], fixed = False)
-            
-            if rng < 0.6*0.5/1.4:
-                self.transform_distort = transforms.Compose([
-                    distort,
-                    transforms.ToTensor(),
-                    normalize
-                ])
-            elif rng < 0.6:
-                self.transform_distort = transforms.Compose([
-                    transforms.ToTensor(),
-                    distort,
-                    normalize
-                ])
-            else:
-                self.transform_distort = transforms.Compose([
-                    transforms.ToTensor(),
-                    normalize
-                ])
-        elif args.mode == 3:
-            blur = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
-            randblur = transforms.RandomApply([blur], p=0.8)
-
-            noise = GaussianNoise(std=[0.05, 0.5], fixed=False)
-            randnoise = transforms.RandomApply([noise], p=0.8)
-
-            self.transform_distort = transforms.Compose([
-                transforms.ToTensor(),
-                randblur,
-                randnoise,
-                normalize
-            ])
-        elif args.mode == 4:
-            rng = torch.rand(1).item()
-            if rng < 0.6*0.8/1.6:
-                distort = transforms.GaussianBlur(kernel_size=23, sigma=[1, 5])
-            elif rng < 0.6:
-                distort = GaussianNoise(std=[0.1, 0.5], fixed=False)
-            
-            if rng < 0.6:
-                self.transform_distort = transforms.Compose([
-                    transforms.ToTensor(),
-                    distort,
-                    normalize
-                ])
-            else:
-                self.transform_distort = transforms.Compose([
-                    transforms.ToTensor(),
-                    normalize
-                ])
-   
-        
+        self.transform_distort = transforms.Compose([
+            randjitter,
+            transforms.ToTensor(),
+            randblur,
+            randnoise,
+            randmask,
+            normalize
+        ])
 
     def __call__(self, x):
         x_temp = self.transform_common(x)
@@ -1064,6 +1003,34 @@ class ImageNet100C(ImageFolder):
     def split_folder(self) -> str:
         return self.root
 
+class CIFARC(torch.utils.data.Dataset):
+    def __init__(self, root, sub_distortion, level, transform=None):
+        super(CIFARC, self).__init__()
+        
+        self.transform = transform
+        
+        start_index = (int(level) - 1) * 10000
+        end_index = start_index + 10000
+        
+        self.data = np.load(root + "/" + sub_distortion + ".npy")[start_index:end_index]
+        self.data = torch.from_numpy(self.data).permute(0, 3, 1, 2)
+        
+        self.labels = np.load(root + "/labels.npy")
+        self.labels = torch.from_numpy(self.labels)
+        
+    def __getitem__(self, index):
+        x = self.data[index]
+        y = self.labels[index]
+        
+        x = transforms.ToPILImage()(x)
+        
+        if self.transform is not None:
+            x = self.transform(x)
+        
+        return x, y
+    
+    def __len__(self):
+        return 10000
 
 def img_grid(data):
     """

@@ -62,10 +62,10 @@ def grab_config():
 
 def noise_level_eval():
     args = grab_config()
-    args.gpus = [1] # Force evaluation in a single gpu.
+    args.gpus = [0] # Force evaluation in a single gpu.
     args.results_dir = './results'
     args.num_tests = 10
-    args.saved_model_type = 'linear'
+    args.saved_model_type = 'baseline'
     seed_everything(42)
     logger = TensorBoardLogger(
         save_dir=args.logdir,
@@ -79,7 +79,7 @@ def noise_level_eval():
     all_results = []
     for test in range(args.num_tests):
         #Choose the appropriate model based on type, and load from checkpoint.
-        basedir = '/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_Linear_ST/full_clean/checkpoints/'
+        basedir = '/work2/08002/gsmyrnis/maverick2/clip_experiments/code/Logs_Baselines/RN101_CLEAN_LINEAR/checkpoints/'
         checkpoint_path = os.path.join(basedir,os.listdir(basedir)[0])
         if args.saved_model_type == 'linear':
             saved_model = LinearProbe.load_from_checkpoint(checkpoint_path)
