@@ -13,7 +13,6 @@ from torch.utils.data  import DataLoader
 
 from linear_probe import LinearProbe
 from baselines import Baseline
-from zeroshot_validation import NoisyCLIPTesting
 
 DISTORTIONS = ['blur', 'digital', 'extra', 'noise', 'weather']
 SUB_DISTORTIONS = {'blur': ['defocus_blur', 'glass_blur', 'motion_blur', 'zoom_blur'],
@@ -102,9 +101,7 @@ def noise_level_eval():
                     saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
                 elif args.saved_model_type == 'baseline':
                     saved_model = Baseline.load_from_checkpoint(args.checkpoint_path)
-                elif args.saved_model_type == 'zeroshot':
-                    saved_model = NoisyCLIPTesting(args, args.checkpoint_path)
-
+                
                 #Load the appropriate data and run the test once with the saved model
                 test_data = ImageNet100CTest(args, distortion=distortion, sub_distortion=sub_distortion, level=level)
                 results = trainer.test(model=saved_model, datamodule=test_data, verbose=False)

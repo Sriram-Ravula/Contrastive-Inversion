@@ -13,8 +13,6 @@ from torch.utils.data  import DataLoader
 
 from linear_probe import LinearProbe
 from baselines import Baseline
-from zeroshot_validation import NoisyCLIPTesting
-from kd_baseline import KDBaseline
 
 class ImageNet100Test(LightningDataModule):
     """
@@ -88,11 +86,7 @@ def noise_level_eval():
                 saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
             elif args.saved_model_type == 'baseline':
                 saved_model = Baseline.load_from_checkpoint(args.checkpoint_path)
-            elif args.saved_model_type == 'zeroshot':
-                saved_model = NoisyCLIPTesting(args, args.checkpoint_path)
-            elif args.saved_model_type == 'kd':
-                saved_model = KDBaseline.load_from_checkpoint(args.checkpoint_path)
-
+            
             # Correctly define noise levels to test.
             if args.distortion == "squaremask":
                 args.length = noise_level

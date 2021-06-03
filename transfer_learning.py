@@ -23,8 +23,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from noisy_clip_dataparallel import NoisyCLIP
 from baselines import Baseline
-from contrastive_baseline import NoisyContrastiveBaseline
-from kd_baseline import KDBaseline
 
 def grab_transforms(args):
     """
@@ -32,10 +30,10 @@ def grab_transforms(args):
 
     Args:
         args - arguments from a config file
-    
+
     Returns:
-        train_set_transform - 
-        val_set_transform - 
+        train_set_transform -
+        val_set_transform -
     """
     if args.dataset == "CIFAR10" or args.dataset == "CIFAR100" or args.dataset == "STL10":
         #Get the correct image transform
@@ -47,7 +45,7 @@ def grab_transforms(args):
             val_set_transform = GeneralDistortValMulti(args)
         else:
             train_set_transform = GeneralDistortTrain(args)
-            val_set_transform = GeneralDistortVal(args)        
+            val_set_transform = GeneralDistortVal(args)
 
     elif args.dataset == 'COVID' or args.dataset == 'ImageNet100B' or args.dataset == 'imagenet-100B':
         #Get the correct image transform
@@ -59,8 +57,8 @@ def grab_transforms(args):
             val_set_transform = ImageNetDistortValMulti(args)
         else:
             train_set_transform = ImageNetDistortTrain(args)
-            val_set_transform = ImageNetDistortVal(args)      
-    
+            val_set_transform = ImageNetDistortVal(args)
+
     return train_set_transform, val_set_transform
 
 
@@ -71,21 +69,15 @@ class TransferLearning(LightningModule):
         self.hparams = args
         self.world_size = self.hparams.num_nodes * self.hparams.gpus
 
-        self.train_set_transform, self.val_set_transform = grab_transforms(self.hparams)    
+        self.train_set_transform, self.val_set_transform = grab_transforms(self.hparams)
 
         #Grab the correct model - only want the embeddings from the final layer!
         if self.hparams.saved_model_type == 'contrastive':
             saved_model = NoisyCLIP.load_from_checkpoint(self.hparams.checkpoint_path)
             self.backbone = saved_model.noisy_visual_encoder
-        elif self.hparams.saved_model_type == 'contrastive_baseline':
-            saved_model = NoisyContrastiveBaseline.load_from_checkpoint(self.hparams.checkpoint_path)
-            self.backbone = saved_model.student
         elif self.hparams.saved_model_type == 'baseline':
             saved_model = Baseline.load_from_checkpoint(self.hparams.checkpoint_path)
             self.backbone = saved_model.encoder.feature_extractor
-        elif self.hparams.saved_model_type == 'kd':
-            saved_model = KDBaseline.load_from_checkpoint(self.hparams.checkpoint_path)
-            self.backbone = saved_model.student.feature_extractor
         
         for param in self.backbone.parameters():
             param.requires_grad = False
@@ -111,7 +103,7 @@ class TransferLearning(LightningModule):
             self.val_auc = AUROC(pos_label=0)
 
             self.test_auc = AUROC(pos_label=0)
-    
+
     def forward(self, x):
         #Grab the noisy image embeddings
         self.backbone.eval()
@@ -122,7 +114,7 @@ class TransferLearning(LightningModule):
                 noisy_embeddings = self.backbone(x)
 
         return self.output(noisy_embeddings.flatten(1))
-    
+
     def configure_optimizers(self):
         if not hasattr(self.hparams, 'weight_decay'):
             self.hparams.weight_decay = 0
@@ -134,11 +126,11 @@ class TransferLearning(LightningModule):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=num_steps)
 
         return [opt], [scheduler]
-    
+
     def _grab_dataset(self, split):
         """
         Given a split ("train" or "val" or "test") and a dataset, returns the proper dataset.
-        Dataset needed is defined in this object's hparams 
+        Dataset needed is defined in this object's hparams
 
         Args:
             split: the split to use in the dataset
@@ -152,9 +144,9 @@ class TransferLearning(LightningModule):
             else:
                 train = False
                 transform = self.val_set_transform
-            
+
             dataset = CIFAR10(root=self.hparams.dataset_dir, train=train, transform=transform, download=True)
-        
+
         elif self.hparams.dataset == "CIFAR100":
             if split == 'train':
                 train = True
@@ -162,9 +154,9 @@ class TransferLearning(LightningModule):
             else:
                 train = False
                 transform = self.val_set_transform
-            
+
             dataset = CIFAR100(root=self.hparams.dataset_dir, train=train, transform=transform, download=True)
-        
+
         elif self.hparams.dataset == 'STL10':
             if split == 'train':
                 stlsplit = 'train'
@@ -172,7 +164,7 @@ class TransferLearning(LightningModule):
             else:
                 stlsplit = 'test'
                 transform = self.val_set_transform
-            
+
             dataset = STL10(root=self.hparams.dataset_dir, split=stlsplit, transform = transform, download=True)
 
         elif self.hparams.dataset == 'COVID':
@@ -182,16 +174,16 @@ class TransferLearning(LightningModule):
             else:
                 covidsplit = 'test'
                 transform = self.val_set_transform
-            
+
             dataset = torchvision.datasets.ImageFolder(root = self.hparams.dataset_dir + covidsplit, transform=transform)
-        
+
         elif self.hparams.dataset == 'ImageNet100B' or self.hparams.dataset == 'imagenet-100B':
             if split == 'train':
                 transform = self.train_set_transform
             else:
                 split = 'val'
                 transform = self.val_set_transform
-            
+
             dataset = ImageNet100(root = self.hparams.dataset_dir, split=split, transform=transform)
 
         elif self.hparams.dataset == 'COVID':
@@ -201,20 +193,20 @@ class TransferLearning(LightningModule):
             else:
                 covidsplit = 'test'
                 transform = self.val_set_transform
-            
+
             dataset = torchvision.datasets.ImageFolder(root = self.hparams.dataset_dir + covidsplit, transform=transform)
-        
+
         elif self.hparams.dataset == 'ImageNet100B' or self.hparams.dataset == 'imagenet-100B':
             if split == 'train':
                 transform = self.train_set_transform
             else:
                 split = 'val'
                 transform = self.val_set_transform
-            
+
             dataset = ImageNet100(root = self.hparams.dataset_dir, split=split, transform=transform)
 
         return dataset
-        
+
 
     def train_dataloader(self):
         train_dataset = self._grab_dataset(split='train')
@@ -227,7 +219,7 @@ class TransferLearning(LightningModule):
                                         pin_memory=True, shuffle=True)
 
         return train_dataloader
-    
+
     def val_dataloader(self):
         val_dataset = self._grab_dataset(split='val')
 
@@ -238,7 +230,7 @@ class TransferLearning(LightningModule):
                                         pin_memory=True, shuffle=True)
 
         return val_dataloader
-    
+
     def test_dataloader(self):
         test_dataset = self._grab_dataset(split='test')
 

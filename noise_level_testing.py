@@ -13,8 +13,7 @@ from torch.utils.data  import DataLoader
 
 from linear_probe import LinearProbe
 from baselines import Baseline
-from zeroshot_validation import NoisyCLIPTesting
-from kd_baseline import KDBaseline
+from denoising_baselines import BaselineDenoiseDistortVal
 
 class ImageNet100Test(LightningDataModule):
     """
@@ -30,6 +29,8 @@ class ImageNet100Test(LightningDataModule):
 
         if self.hparams.distortion == "None":
             self.val_set_transform = ImageNetBaseTransformVal(self.hparams)
+        elif self.hparams.denoised:
+            self.val_set_transform = BaselineDenoiseDistortVal(self.hparams)
         else:
             self.val_set_transform = ImageNetDistortVal(self.hparams)
 
@@ -53,7 +54,8 @@ def grab_config():
 
     config = yaml_config_hook(parser.parse_args().config_file)
     for k, v in config.items():
-        parser.add_argument(f"--{k}", default=v, type=type(v))
+        if not k == 'seed' and not k == 'distributed_backend':
+            parser.add_argument(f"--{k}", default=v, type=type(v))
 
     args = parser.parse_args()
 
@@ -89,11 +91,7 @@ def noise_level_eval():
                 saved_model = LinearProbe.load_from_checkpoint(args.checkpoint_path)
             elif args.saved_model_type == 'baseline':
                 saved_model = Baseline.load_from_checkpoint(args.checkpoint_path)
-            elif args.saved_model_type == 'zeroshot':
-                saved_model = NoisyCLIPTesting(args, args.checkpoint_path)
-            elif args.saved_model_type == 'kd':
-                saved_model = KDBaseline.load_from_checkpoint(args.checkpoint_path)
-
+            
             # Correctly define noise levels to test.
             if args.distortion == "squaremask":
                 args.length = noise_level

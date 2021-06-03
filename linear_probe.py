@@ -17,7 +17,6 @@ from pytorch_lightning.metrics import Accuracy
 from torch.utils.data  import DataLoader
 
 from noisy_clip_dataparallel import NoisyCLIP
-from contrastive_baseline import NoisyContrastiveBaseline
 
 class LinearProbe(LightningModule):
     """
@@ -51,10 +50,7 @@ class LinearProbe(LightningModule):
         #This should be initialised as a trained student CLIP network
         if self.hparams.encoder == "clip":
             saved_student = NoisyCLIP.load_from_checkpoint(self.hparams.checkpoint_path)
-            self.backbone = saved_student.noisy_visual_encoder            
-        elif self.hparams.encoder == "resnet":
-            saved_student = NoisyContrastiveBaseline.load_from_checkpoint(self.hparams.checkpoint_path)
-            self.backbone = saved_student.student
+            self.backbone = saved_student.noisy_visual_encoder
         elif self.hparams.encoder == "clean":
             saved_student = clip.load('RN101', 'cpu', jit=False)[0]
             self.backbone = saved_student.visual
@@ -88,8 +84,6 @@ class LinearProbe(LightningModule):
         with torch.no_grad():
             if self.hparams.encoder == "clip":
                 noisy_embeddings = self.backbone(x.type(torch.float16)).float()
-            elif self.hparams.encoder == "resnet":
-                noisy_embeddings = self.backbone(x)
             elif self.hparams.encoder == "clean":
                 noisy_embeddings = self.backbone(x.type(torch.float16)).float()
 
