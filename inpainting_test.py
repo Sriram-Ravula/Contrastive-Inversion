@@ -8,7 +8,7 @@ import argparse
 import warnings
 warnings.filterwarnings('ignore')
 
-from supplement_deep_decoder.include import *
+from deep_decoder.include import *
 from PIL import Image
 import PIL
 
@@ -30,7 +30,7 @@ else:
     dtype = torch.FloatTensor
 
 from utils import *
-from supplement_deep_decoder import *
+from deep_decoder import *
 from torch.utils.data import DataLoader
 
 from baselines import Baseline
