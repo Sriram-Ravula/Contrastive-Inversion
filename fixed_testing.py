@@ -47,6 +47,9 @@ class ImageNet100Test(LightningDataModule):
 
 
 def grab_config():
+    """
+    Given a filename, grab the corresponsing config file and return it 
+    """
     parser = argparse.ArgumentParser(description="NoisyCLIP")
 
     parser.add_argument('--config_file')

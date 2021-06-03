@@ -27,6 +27,16 @@ from contrastive_baseline import NoisyContrastiveBaseline
 from kd_baseline import KDBaseline
 
 def grab_transforms(args):
+    """
+    Method to get the correct train and val set transforms given configuration parameters
+
+    Args:
+        args - arguments from a config file
+    
+    Returns:
+        train_set_transform - 
+        val_set_transform - 
+    """
     if args.dataset == "CIFAR10" or args.dataset == "CIFAR100" or args.dataset == "STL10":
         #Get the correct image transform
         if args.distortion == "None":
@@ -126,6 +136,15 @@ class TransferLearning(LightningModule):
         return [opt], [scheduler]
     
     def _grab_dataset(self, split):
+        """
+        Given a split ("train" or "val" or "test") and a dataset, returns the proper dataset.
+        Dataset needed is defined in this object's hparams 
+
+        Args:
+            split: the split to use in the dataset
+        Returns:
+            dataset: the desired dataset with the correct split
+        """
         if self.hparams.dataset == "CIFAR10":
             if split == 'train':
                 train = True

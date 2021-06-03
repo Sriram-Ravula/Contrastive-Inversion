@@ -18,6 +18,7 @@ import torch.optim
 from torch.autograd import Variable
 from time import time
 
+#Set up GPU usage
 GPU = True
 if GPU == True:
     torch.backends.cudnn.enabled = True
@@ -35,6 +36,9 @@ from torch.utils.data import DataLoader
 from baselines import Baseline
 
 def grab_config():
+    """
+    Given a filename, grab the corresponsing config file and return it 
+    """
     parser = argparse.ArgumentParser(description="NoisyCLIP")
 
     parser.add_argument('--config_file')
@@ -48,6 +52,9 @@ def grab_config():
     return args
 
 class ImageNetBaseTransformVal:
+    """
+    Small transform to just resize and crop a given image
+    """
     def __init__(self):
         self.transform = transforms.Compose([
             transforms.Resize(256),
@@ -60,6 +67,7 @@ class ImageNetBaseTransformVal:
 
 args = grab_config()
 
+#Load the saved model 
 saved_model = Baseline.load_from_checkpoint(args.checkpoint_path)
 saved_model = saved_model.encoder
 saved_model = saved_model.to('cuda')
@@ -70,10 +78,12 @@ dataset = ImageNet100(root = '/tmp/ImageNet100',
 
 loader = DataLoader(dataset, batch_size=1, num_workers=12, pin_memory=True, shuffle=True)
 
+#Set up the masking distortion and save the mask to be used in Deep Decoder
 distortion = RandomMask(percent_missing=0.5, return_mask=True)
 fake_tens = torch.zeros(1,3,224,224)
 _, mask = distortion(fake_tens)
 
+#Make the mask the correct size
 mask = mask.view(224,224).unsqueeze(0)
 mask = torch.cat(3*[mask]).unsqueeze(0)
 mask = mask.to('cuda')
@@ -86,6 +96,7 @@ num_channels = [256]*5
 top_1 = 0
 top_5 = 0
 
+#Set up the normalizer depending on what type of model we would like to use
 if args.encoder == "clip":
     normalize = transforms.Normalize(
         mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711]
@@ -98,15 +109,18 @@ else:
 if not os.path.exists(args.results_dir):
     os.mkdir(args.results_dir)
 
+#Iterate through the entire validation set, perform inpainting on each image, then classify it
 for i, batch in enumerate(loader):
     x, y = batch
 
     x = distortion(x)
 
+    #initialize the DD network
     net = decodernw(3,num_channels_up=num_channels,upsample_first = True).type(dtype).to('cuda')
 
     x = x.to('cuda')
 
+    #Perform inpainting
     mse_n, mse_t, ni, net = fit( num_channels=num_channels,
                             reg_noise_std=rn,
                             reg_noise_decayevery = rnd,
@@ -120,10 +134,11 @@ for i, batch in enumerate(loader):
                             )
 
     out_img = net( ni.type(dtype) ).data
-    out_img = normalize(out_img)
+    out_img = normalize(out_img) #normalize the inpainted image
     
     logits = saved_model(out_img).squeeze()
 
+    #Grab the top-1 and top-5 predictions from the network
     _, inds1 = torch.topk(logits, 1)
     _, inds5 = torch.topk(logits, 5)
 
@@ -134,6 +149,7 @@ for i, batch in enumerate(loader):
         top_5 = top_5 + 1
         print("TOP 5")
     
+    #If we have run through the entire dataset, save the final results
     if i >= 4999:
         top_1 = top_1 / i
         top_5 = top_5 / i

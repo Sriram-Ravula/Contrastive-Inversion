@@ -105,6 +105,7 @@ def noise_level_eval():
                 elif args.saved_model_type == 'zeroshot':
                     saved_model = NoisyCLIPTesting(args, args.checkpoint_path)
 
+                #Load the appropriate data and run the test once with the saved model
                 test_data = ImageNet100CTest(args, distortion=distortion, sub_distortion=sub_distortion, level=level)
                 results = trainer.test(model=saved_model, datamodule=test_data, verbose=False)
 

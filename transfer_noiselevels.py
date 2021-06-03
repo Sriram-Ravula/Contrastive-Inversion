@@ -16,6 +16,11 @@ from torch.utils.data  import DataLoader
 from transfer_learning import TransferLearning
 
 class TransferTestDataset(LightningDataModule):
+    """
+    Dataset for transfer learning, to be used only for testing.
+    Implemented separately because it is linked to both end-to-end suprevised and contrastive training.
+
+    """
     def __init__(self, args):
         super(TransferTestDataset, self).__init__()
 
@@ -96,6 +101,7 @@ def transfer_eval():
     )
     trainer = Trainer.from_argparse_args(args, logger=logger, progress_bar_refresh_rate=0)
 
+    #create necessary directories for saving results
     if not os.path.exists(args.results_dir):
         os.mkdir(args.results_dir)
 
@@ -103,6 +109,8 @@ def transfer_eval():
         os.mkdir(os.path.join(args.results_dir, args.experiment_name))
 
     all_results = []
+
+    #perform several tests over the dataset and aggregate the results
     for test in range(args.num_tests):
         saved_model = TransferLearning.load_from_checkpoint(args.checkpoint_path)
 
