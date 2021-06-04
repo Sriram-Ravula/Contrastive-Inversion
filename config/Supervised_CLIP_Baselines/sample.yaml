@@ -1,12 +1,12 @@
-#seed - SAME BETWEEN RUNS
+#seed 
 seed: 1234
 
-#data - SAME BETWEEN RUNS
+#data
 dataset_dir: "/tmp/ImageNet100/"
 dataset: "ImageNet100"
 num_classes: 100
 
-#distributed training - SAME BETWEEN RUNS
+#distributed training
 num_nodes: 1
 gpus: 1
 workers: 12
@@ -14,15 +14,15 @@ distributed_backend: "ddp"
 
 ###############################################
 
-#Experiment Stuff - CHANGE BETWEEN RUNS
+#Experiment Stuff 
 experiment_name: "sample_baseline"
 
-#Distortions and parameters - CHANGE BETWEEN RUNS
+#Distortions and parameters 
 distortion: "randommask" #randommask/gaussiannoise/gaussianblur/squaremask
 percent_missing: 0.9
 fixed_mask: False
 
-#model - CHANGE BETWEEN RUNS
+#model 
 encoder: "resnet" #'clip' or 'resnet'
 resnet_model: '101' #'ViT-B/32' or 'RN50' or "RN101" or "RN50x4", only matters if encoder: "clip"
 freeze_backbone: False
