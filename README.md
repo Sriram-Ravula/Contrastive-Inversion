@@ -5,6 +5,7 @@ In order to run the code for our models, it is necessary to install ```pytorch_l
 - ```clip.py```
 - ```simple_tokenizer.py```
 - ```bpe_simple_vocab_16e6.txt.gz```
+
 For simplicity, we have copied these required files into our own code.
 
 ## Structure
