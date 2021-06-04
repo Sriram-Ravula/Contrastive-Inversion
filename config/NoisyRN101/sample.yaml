@@ -1,14 +1,14 @@
-#seed - SAME BETWEEN RUNS
+#seed 
 seed: 1234
 
-#data - SAME BETWEEN RUNS
+#data 
 dataset_dir: "/tmp/imagenet100"
 dataset: "ImageNet100"
 subset_file_name: "imagenet100.txt"
 num_classes: 100
 emb_dim: 512
 
-#distributed training - SAME BETWEEN RUNS
+#distributed training 
 num_nodes: 1
 gpus: 1
 workers: 12
@@ -16,10 +16,10 @@ distributed_backend: "dp" #DP instead of DDP to accomodate for larger batch size
 
 ###############################################
 
-#Experiment Stuff - CHANGE BETWEEN RUNS
+#Experiment Stuff
 experiment_name: "sample_student"
 
-#Distortions and parameters - CHANGE BETWEEN RUNS
+#Distortions and parameters 
 encoder: "clip"
 baseclip_type: "RN101"
 device: "cpu" #Original device where baseclip is loaded
