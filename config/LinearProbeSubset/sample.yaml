@@ -1,13 +1,13 @@
-#seed - SAME BETWEEN RUNS
+#seed
 seed: 1234
 
-#data - SAME BETWEEN RUNS
+#data
 dataset_dir: "/tmp/imagenet100/"
 dataset: "ImageNet100"
 num_classes: 100
 emb_dim: 512
 
-#distributed training - SAME BETWEEN RUNS
+#distributed training 
 num_nodes: 1
 gpus: 1
 workers: 12
@@ -15,11 +15,11 @@ distributed_backend: "ddp"
 
 ###############################################
 
-#Experiment Stuff - CHANGE BETWEEN RUNS
+#Experiment Stuff
 experiment_name: "sample_linear_probe"
 checkpoint_path: "/path/to/contrastive_student.ckpt"
 
-#Distortions and parameters - CHANGE BETWEEN RUNS
+#Distortions and parameters
 distortion: "randommask" #randommask/gaussiannoise/gaussianblur/squaremask
 percent_missing: 0.9 #only for randommask - can be float from 0 to 1 for set number of missing pixels, or two floats for uniform range of missing pixels.
 fixed_mask: False #can be set to true if fixed mask is desired
