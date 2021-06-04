@@ -5,10 +5,10 @@ import sys
 import shutil
 from glob import glob
 
-DATA_SRC_ROOT = '/home/sriram/Projects/Datasets/ImageNet-C' #The path to the ImageNet-C dataset root - should contain 5 files of each distortion and meta.bin
-IMAGENET100_DIR = '/home/sriram/Projects/Datasets/ImageNet100C' #The destination for the new ImageNet100-C folder
-IMAGENET100_CLASSES = '/home/sriram/Projects/Datasets/Imagenet/imagenet100.txt' #the file with the wnid names of the classes in the imagenet subset
-ZIP_PATH = '/home/sriram/Projects/Datasets' #destination for the zipped ImageNet100C folder
+DATA_SRC_ROOT = './ImageNet-C' #The path to the ImageNet-C dataset root - should contain 5 files of each distortion and meta.bin
+IMAGENET100_DIR = './ImageNet100C' #The destination for the new ImageNet100-C folder
+IMAGENET100_CLASSES = './imagenet100.txt' #the file with the wnid names of the classes in the imagenet subset
+ZIP_PATH = './' #destination for the zipped ImageNet100C folder
 
 def zip_imagenet100c():
     """
@@ -17,7 +17,7 @@ def zip_imagenet100c():
     #First make sure the directory we are given is correct!
     if not os.path.isdir(DATA_SRC_ROOT):
         raise Exception("Bad filepath given")
-    
+
     #create the destiantion directories if they don't exist
     if not os.path.isdir(IMAGENET100_DIR):
         os.mkdir(IMAGENET100_DIR)
@@ -32,15 +32,15 @@ def zip_imagenet100c():
     for distortion in os.listdir(DATA_SRC_ROOT):
         if distortion != "meta.bin":
             print(distortion)
-        
+
         folder_path = os.path.join(DATA_SRC_ROOT, distortion)
 
         if not os.path.isdir(folder_path):
             continue
-            
+
         for sub_distortion in os.listdir(folder_path):
             print(sub_distortion)
-        
+
             subfolder_path = os.path.join(folder_path, sub_distortion)
 
             if not os.path.isdir(subfolder_path):

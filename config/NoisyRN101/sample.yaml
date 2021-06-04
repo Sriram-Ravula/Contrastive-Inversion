@@ -17,7 +17,7 @@ distributed_backend: "dp" #DP instead of DDP to accomodate for larger batch size
 ###############################################
 
 #Experiment Stuff - CHANGE BETWEEN RUNS
-experiment_name: "Noisy_RN101_rand90_contrastive_nonfixed"
+experiment_name: "sample_student"
 
 #Distortions and parameters - CHANGE BETWEEN RUNS
 encoder: "clip"
