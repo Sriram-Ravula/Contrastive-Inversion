@@ -1,24 +1,24 @@
-#seed - SAME BETWEEN RUNS
+#seed
 seed: 1234
 
-#data - SAME BETWEEN RUNS
+#data 
 dataset_dir: "./dataset/"
 dataset: "CIFAR10" #or CIFAR100, STL10, COVID, ImageNet100B
 num_classes: 10 # or 100 or 2
 emb_dim: 512
 
-#distributed training - SAME BETWEEN RUNS
+#distributed training
 num_nodes: 1
 gpus: 1
 workers: 12
 
 ###############################################
 
-#Experiment Stuff - CHANGE BETWEEN RUNS
+#Experiment Stuff 
 experiment_name: "sample_transfer_noiselevels"
 checkpoint_path: "/path/to/model.ckpt"
 
-#Distortions and parameters - CHANGE BETWEEN RUNS
+#Distortions and parameters 
 distortion: "randommask"
 percent_missing: [0.5, 0.95]
 fixed_mask: False
