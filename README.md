@@ -47,3 +47,4 @@ Using the following snippets of code, the experiments described in the paper can
 - ```python transfer_learning.py --config_file config/TransferLearning/sample.yaml```: Train a model on top of learned representations on a different dataset.
 - ```python transfer_noiselevels.py --config_file config/Transfer_NoiseLevels/sample.yaml```: Evaluate the above model on various noise levels.
 - ```python imagenet100c.py --config_file config/ImageNet100C/sample.yaml```: Evaluate a model on ImageNet100C.
+- ```inpainting_test.py --config_file config/inpainting_sample.yaml```: Evaluate a trained baseline model on inpainted ImageNet-100 images
