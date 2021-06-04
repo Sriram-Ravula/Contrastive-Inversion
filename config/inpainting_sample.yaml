@@ -1,0 +1,33 @@
+#seed 
+seed: 1234
+
+#data
+dataset_dir: "/path/to/ImageNet-100/root/"
+dataset: "ImageNet100"
+num_classes: 100
+emb_dim: 512
+
+#distributed training
+num_nodes: 1
+gpus: 1
+workers: 1
+
+###############################################
+
+#Experiment Stuff 
+experiment_name: "INPAINTING_BASELINE"
+checkpoint_path: "/path/to/checkpoint_file.ckpt"
+
+distortion: "randommask" 
+percent_missing: 0.5 
+
+encoder: "resnet"
+
+#logging
+log_save_interval: 10 
+row_log_interval: 1
+logdir: "/tmp/Logs"
+results_dir: "/tmp/Inpainting"
+
+#validation
+check_val_every_n_epoch: 1
