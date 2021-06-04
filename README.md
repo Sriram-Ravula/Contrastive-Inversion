@@ -37,7 +37,7 @@ For our experiment with changing labels of some ImageNet classes, create a folde
 
 ## Examples
 
-Using the following snippets of code, the experiments described in the paper can be run. Note that editing the ```batch_size``` and ```gpus``` parameters of the sample files will lead to speedup and increased performance for the contrastive models.
+Using the following snippets of code, the experiments described in the paper can be run. Note that editing the ```batch_size``` and ```gpus``` parameters of the sample files can lead to speedup and increased performance for the contrastive models. Also note that some of the sample config files, such as those for transfer learning evaluation, require you to provide a path to a saved model checkpoint.
 
 - ```python baselines.py --config_file config/Supervised_CLIP_Baselines/sample.yaml```: Train a baseline model, in an end-to-end supervised fashion.
 - ```python noisy_clip_dataparallel.py --config_file config/NoisyRN101/sample.yaml```: Trains a CLIP model using contrastive learning.
