@@ -51,7 +51,7 @@ Using the following snippets of code, the experiments described in the paper can
 
 ## Saved Models
 
-We provide some pre-trained models for evaluation and finetuning. The models include a contrastively-trained robust encoder backbone for: random masking of 90$ pixels, Gaussian blur with kernel size 37 and std 9, and Gaussian additive noise with std 0.5. In addition, we provide linear probes for each of these backbones, trained on distorted ImageNet-100 data. We also provide supervised baselines for each of the above distortions.
+We provide some pre-trained models for evaluation and finetuning. The models include a contrastively-trained robust encoder backbone for: random masking of 90% pixels, Gaussian blur with kernel size 37 and std 9, and Gaussian additive noise with std 0.5. In addition, we provide linear probes for each of these backbones, trained on distorted ImageNet-100 data. We also provide supervised baselines for each of the above distortions.
 
 To use these models for evaluation, refer to the section above for examples. Specifically, the checkpoints we provide are for fixed distortions on ImageNet-100 data, so ```noise_level_testing.py``` is the most relevant program to evaluate these models. You must alter the given sample config files to point to the path where these checkpoints are contained, as well as to reflect the distortion type for each model. 
 
