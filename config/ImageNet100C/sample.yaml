@@ -1,10 +1,10 @@
-#data - SAME BETWEEN RUNS
+#data 
 dataset_dir: "/tmp/ImageNet100C/"
 dataset: "ImageNet100C"
 num_classes: 100
 emb_dim: 512
 
-#distributed training - SAME BETWEEN RUNS
+#distributed training
 num_nodes: 1
 gpus: 1
 workers: 12
@@ -12,18 +12,18 @@ workers: 12
 
 ###############################################
 
-#Experiment Stuff - CHANGE BETWEEN RUNS
+#Experiment Stuff 
 experiment_name: "sample_imagenet100c"
 checkpoint_path: "/path/to/contrastive_student.ckpt"
 
-#Distortions and parameters - CHANGE BETWEEN RUNS
+#Distortions and parameters 
 distortion: "None"  #Must be None here!
 saved_model_type: "linear" # linear|baseline
 
 encoder: "clip"
 
 #logging
-log_save_interval: 25 #set this to be equal to num_epochs if row_log_interval is 1
+log_save_interval: 25 
 row_log_interval: 1
 logdir: "/tmp/Logs"
 
