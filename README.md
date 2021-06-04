@@ -56,14 +56,14 @@ We provide some pre-trained models for evaluation and finetuning. The models inc
 To use these models for evaluation, refer to the section above for examples. Specifically, the checkpoints we provide are for fixed distortions on ImageNet-100 data, so ```noise_level_testing.py``` is the most relevant program to evaluate these models. You must alter the given sample config files to point to the path where these checkpoints are contained, as well as to reflect the distortion type for each model. 
 
 Links to checkpoint files:
-- Gaussian Blur n=37, std=9 robust backbone:
-- Random Masking 90% robust backbone: 
-- Gaussian Noise std=0.5 robust backbone:
+- Gaussian Blur n=37, std=9 robust backbone: https://drive.google.com/file/d/1q1g0DjY8SCCnkMnt9lN4bLo1352qZFvi/view?usp=sharing
+- Random Masking 90% robust backbone: https://drive.google.com/file/d/1HOi7fU-AkOKcVwibDRe97IYnS0U8ijPm/view?usp=sharing
+- Gaussian Noise std=0.5 robust backbone: https://drive.google.com/file/d/1PmquZJLCsIHvwTCNuNmfYolWiW1xPzSm/view?usp=sharing
 
-- Gaussian Blur n=37, std=9 linear probe:
-- Random Masking 90% linear probe: 
-- Gaussian Noise std=0.5 linear probe:
+- Gaussian Blur n=37, std=9 linear probe: https://drive.google.com/file/d/1f1llrEZPfcTiYK2E7IO54Cd_sUhIVPFD/view?usp=sharing
+- Random Masking 90% linear probe: https://drive.google.com/file/d/1obQCzf74jSN_lOlozTlFVrtaD549teYl/view?usp=sharing
+- Gaussian Noise std=0.5 linear probe: https://drive.google.com/file/d/1cl5tu8yq9vpkZGifUyBwMvfFPd9I4Cgd/view?usp=sharing
 
-- Gaussian Blur n=37, std=9 baseline:
-- Random Masking 90% baseline: 
-- Gaussian Noise std=0.5 baseline:
+- Gaussian Blur n=37, std=9 baseline: https://drive.google.com/file/d/1nIfjNjbAhjNsWQgooh_MhmK0qdYb6ThC/view?usp=sharing
+- Random Masking 90% baseline: https://drive.google.com/file/d/1jgwu57OQc5qWyzGUVV7tnDyELlxwnAqN/view?usp=sharing
+- Gaussian Noise std=0.5 baseline: https://drive.google.com/file/d/1OuLbKoUuLxIxP3-QLdrp9eaE81O2CDag/view?usp=sharing
