@@ -2,7 +2,7 @@
 
 This repo contains the official code for the paper [Inverse Problems Leveraging Pre-trained Contrastive Representations](https://arxiv.org/abs/2110.07439).
 
-Authors: [Sriram Ravula](sriramravula.com), Georgios Smyrnis, [Matt Jordan](https://www.cs.utexas.edu/~mjordan/), and [Alexandros G. Dimakis](https://users.ece.utexas.edu/~dimakis/) from The University of Texas at Austin.
+Authors: [Sriram Ravula](https://www.sriramravula.com), Georgios Smyrnis, [Matt Jordan](https://www.cs.utexas.edu/~mjordan/), and [Alexandros G. Dimakis](https://users.ece.utexas.edu/~dimakis/) from The University of Texas at Austin.
 
 ## Requirements
 
@@ -73,3 +73,18 @@ Links to checkpoint files:
 - Gaussian Blur n=37, std=9 baseline: https://drive.google.com/file/d/1nIfjNjbAhjNsWQgooh_MhmK0qdYb6ThC/view?usp=sharing
 - Random Masking 90% baseline: https://drive.google.com/file/d/1jgwu57OQc5qWyzGUVV7tnDyELlxwnAqN/view?usp=sharing
 - Gaussian Noise std=0.5 baseline: https://drive.google.com/file/d/1OuLbKoUuLxIxP3-QLdrp9eaE81O2CDag/view?usp=sharing
+
+## References
+
+If you found this repo or our paper useful, please consider citing our work:
+
+```bibtex
+@misc{ravula2021inverse,
+title={Inverse Problems Leveraging Pre-trained Contrastive Representations},
+author={Sriram Ravula and Georgios Smyrnis and Matt Jordan and Alexandros G. Dimakis},
+year={2021},
+eprint={2110.07439},
+archivePrefix={arXiv},
+primaryClass={cs.LG}
+}
+```
