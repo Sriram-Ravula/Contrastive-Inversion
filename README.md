@@ -80,11 +80,11 @@ If you found this repo or our paper useful, please consider citing our work:
 
 ```bibtex
 @misc{ravula2021inverse,
-title={Inverse Problems Leveraging Pre-trained Contrastive Representations},
-author={Sriram Ravula and Georgios Smyrnis and Matt Jordan and Alexandros G. Dimakis},
-year={2021},
-eprint={2110.07439},
-archivePrefix={arXiv},
-primaryClass={cs.LG}
+  title={Inverse Problems Leveraging Pre-trained Contrastive Representations},
+  author={Sriram Ravula and Georgios Smyrnis and Matt Jordan and Alexandros G. Dimakis},
+  year={2021},
+  eprint={2110.07439},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG}
 }
 ```
