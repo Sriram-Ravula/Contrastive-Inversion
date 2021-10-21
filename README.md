@@ -1,6 +1,12 @@
+# Inverse Problems Leveraging Pre-trained Contrastive Representations
+
+This repo contains the official code for the paper [Inverse Problems Leveraging Pre-trained Contrastive Representations](https://arxiv.org/abs/2110.07439).
+
+Authors: [Sriram Ravula](sriramravula.com), Georgios Smyrnis, [Matt Jordan](https://www.cs.utexas.edu/~mjordan/), and [Alexandros G. Dimakis](https://users.ece.utexas.edu/~dimakis/) from The University of Texas at Austin.
+
 ## Requirements
 
-In order to run the code for our models, it is necessary to install ```pytorch_lightning``` and all of its dependencies. The file ```requirements.txt``` provides the environment specifications for running our coder. Moreover, it is necessary that the following files from the OpenAI CLIP repository (https://github.com/openai/CLIP) are added, along with their respective requirements:
+The file ```requirements.txt``` provides the environment specifications for running our code. You can install them using ```pip install -r requirements.txt```. You also need the following files from the OpenAI CLIP repository (https://github.com/openai/CLIP), along with their respective requirements:
 - ```model.py```
 - ```clip.py```
 - ```simple_tokenizer.py```
@@ -22,7 +28,7 @@ The following source files are required to execute the various experiments of ou
 - ```inpiainting_test.py```: Inpainting of images with missing pixels.
 - ```utils.py```: General library for functions used throughout our code.
 
-We also provide ```slice_imagenet100.py```, a code to be used one time to generate the ImageNet-100 subset we used, as defined by ```imagenet100.txt```. In order to run most of the code we provide, please first run this file with the proper source path to the full ImageNet dataset (can be downloaded separately at https://image-net.org/download) and desired destination path for the 100-class subset. Then, provide the path to your 100-class ImageNet subset in the yaml config files. For further details, refer to the comments in ```slice_imagenet100.py``` and the global variables set at the beginning of the script. The ```slice_imagenet100c.py``` file works in a similar fashion.
+We also provide ```slice_imagenet100.py```, to be used one time to generate the ImageNet-100 subset we used, as defined by ```imagenet100.txt```. In order to run most of the code we provide, please first run this file with the proper source path to the full ImageNet dataset (can be downloaded separately at https://image-net.org/download) and desired destination path for the 100-class subset. Then, provide the path to your 100-class ImageNet subset in the yaml config files. For further details, refer to the comments in ```slice_imagenet100.py``` and the global variables set at the beginning of the script. The ```slice_imagenet100c.py``` file works in a similar fashion.
 
 In the ```config/``` folder, some sample configuration files for our experiments are included.
 
