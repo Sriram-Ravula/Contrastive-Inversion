@@ -12,7 +12,7 @@ The file ```requirements.txt``` provides the environment specifications for runn
 - ```simple_tokenizer.py```
 - ```bpe_simple_vocab_16e6.txt.gz```
 
-For simplicity, we have copied these required files into our own code.
+For simplicity, we have copied these required files into our own code in the folder "clip_files".
 
 ## Structure
 
