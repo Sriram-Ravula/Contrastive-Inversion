@@ -2,7 +2,7 @@
 
 This repo contains the official code for the paper [Inverse Problems Leveraging Pre-trained Contrastive Representations](https://arxiv.org/abs/2110.07439).
 
-Authors: [Sriram Ravula](https://www.sriramravula.com), Georgios Smyrnis, [Matt Jordan](https://www.cs.utexas.edu/~mjordan/), and [Alexandros G. Dimakis](https://users.ece.utexas.edu/~dimakis/) from The University of Texas at Austin.
+Authors: [Sriram Ravula](https://www.sriramravula.com), [Georgios Smyrnis](https://georgiossmyrnis.github.io/), [Matt Jordan](https://www.cs.utexas.edu/~mjordan/), and [Alexandros G. Dimakis](https://users.ece.utexas.edu/~dimakis/) from The University of Texas at Austin.
 
 ## Requirements
 
